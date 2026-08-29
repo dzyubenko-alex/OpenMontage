@@ -16,6 +16,12 @@ import { ProductReveal, ProductRevealProps } from "./components/ProductReveal";
 import { CaptionOverlay, WordCaption } from "./components/CaptionOverlay";
 import { CollageBurst, CollageBurstProps } from "./CollageBurst";
 import { LyricOverlay, LyricOverlayProps } from "./LyricOverlay";
+import {
+  PhotoCoreV1,
+  calculatePhotoCoreV1Metadata,
+  photoCoreV1DefaultProps,
+  photoCoreV1Schema,
+} from "./presets/photo-core-v1";
 
 // ---------------------------------------------------------------------------
 // Theme System — prevents every video from looking like dark fintech
@@ -149,6 +155,17 @@ export const Root: React.FC = () => {
           audio: {},
         }}
         calculateMetadata={calculateMetadata}
+      />
+      <Composition
+        id="PhotoCoreV1"
+        component={PhotoCoreV1}
+        durationInFrames={30}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={photoCoreV1DefaultProps}
+        calculateMetadata={calculatePhotoCoreV1Metadata}
+        schema={photoCoreV1Schema}
       />
       <Composition
         id="CinematicRenderer"
