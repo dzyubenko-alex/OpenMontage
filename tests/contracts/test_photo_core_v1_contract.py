@@ -77,3 +77,33 @@ def test_photo_core_uses_frame_driven_remotion_primitives() -> None:
     assert "<Img" in frame
     assert "premountFor={fps}" in composition
     assert "<Audio" in composition
+
+
+def test_photo_core_applies_declarative_crop_as_a_motion_viewport() -> None:
+    frame = (PRESET_DIR / "PhotoFrame.tsx").read_text(encoding="utf-8")
+
+    assert "cropViewportStyle(cut.transform?.crop)" in frame
+    assert "left: crop.x" in frame
+    assert "top: crop.y" in frame
+    assert "width: crop.width" in frame
+    assert "height: crop.height" in frame
+    assert 'overflow: "hidden"' in frame
+
+    # Positioning and frame-driven motion stay on the image inside the viewport.
+    assert "objectPosition," in frame
+    assert "translate3d(${x}px, ${y}px, 0) scale(${scale})" in frame
+
+
+def test_edit_decisions_crop_is_a_complete_composition_viewport() -> None:
+    schema = json.loads(
+        (REPO_ROOT / "schemas" / "artifacts" / "edit_decisions.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    crop = schema["properties"]["cuts"]["items"]["properties"]["transform"][
+        "properties"
+    ]["crop"]
+
+    assert crop["required"] == ["x", "y", "width", "height"]
+    assert "composition pixels" in crop["description"]
+    assert crop["additionalProperties"] is False

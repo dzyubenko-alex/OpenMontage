@@ -34,12 +34,15 @@
               },
               "crop": {
                 "type": "object",
+                "description": "Image viewport in composition pixels; positioning and motion are rendered inside this clipped rectangle.",
                 "properties": {
                   "x": { "type": "number" },
                   "y": { "type": "number" },
                   "width": { "type": "number" },
                   "height": { "type": "number" }
-                }
+                },
+                "required": ["x", "y", "width", "height"],
+                "additionalProperties": false
               }
             },
             "additionalProperties": false

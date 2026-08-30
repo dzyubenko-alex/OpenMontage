@@ -5,6 +5,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import type {CSSProperties} from "react";
 import {resolveAsset} from "../../lib/resolveAsset";
 import type {EditingProfile, PhotoCoreCut} from "./types";
 
@@ -23,6 +24,23 @@ const motionFor = (cut: PhotoCoreCut, editing: EditingProfile, index: number) =>
   if (editing.motion === "alternate") return index % 2 === 0 ? "zoom-in" : "pan";
   return editing.motion;
 };
+
+export const cropViewportStyle = (
+  crop: NonNullable<NonNullable<PhotoCoreCut["transform"]>["crop"]> | undefined,
+): CSSProperties => crop
+  ? {
+      position: "absolute",
+      left: crop.x,
+      top: crop.y,
+      width: crop.width,
+      height: crop.height,
+      overflow: "hidden",
+    }
+  : {
+      position: "absolute",
+      inset: 0,
+      overflow: "hidden",
+    };
 
 export const PhotoFrame: React.FC<PhotoFrameProps> = ({cut, editing, index}) => {
   const frame = useCurrentFrame();
@@ -74,18 +92,20 @@ export const PhotoFrame: React.FC<PhotoFrameProps> = ({cut, editing, index}) => 
 
   return (
     <AbsoluteFill style={{overflow: "hidden", backgroundColor: editing.background_color}}>
-      <Img
-        src={resolveAsset(cut.source)}
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: editing.image_fit,
-          objectPosition,
-          opacity: Math.min(fadeIn, fadeOut),
-          transform: `translate3d(${x}px, ${y}px, 0) scale(${scale})`,
-          willChange: "transform, opacity",
-        }}
-      />
+      <div style={cropViewportStyle(cut.transform?.crop)}>
+        <Img
+          src={resolveAsset(cut.source)}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: editing.image_fit,
+            objectPosition,
+            opacity: Math.min(fadeIn, fadeOut),
+            transform: `translate3d(${x}px, ${y}px, 0) scale(${scale})`,
+            willChange: "transform, opacity",
+          }}
+        />
+      </div>
     </AbsoluteFill>
   );
 };
