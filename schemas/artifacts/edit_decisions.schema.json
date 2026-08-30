@@ -34,12 +34,15 @@
               },
               "crop": {
                 "type": "object",
+                "description": "Image viewport in composition pixels; positioning and motion are rendered inside this clipped rectangle.",
                 "properties": {
                   "x": { "type": "number" },
                   "y": { "type": "number" },
                   "width": { "type": "number" },
                   "height": { "type": "number" }
-                }
+                },
+                "required": ["x", "y", "width", "height"],
+                "additionalProperties": false
               }
             },
             "additionalProperties": false
@@ -195,8 +198,12 @@
     },
     "renderer_family": {
       "type": "string",
-      "enum": ["explainer-data", "explainer-teacher", "cinematic-trailer", "documentary-montage", "product-reveal", "screen-demo", "presenter", "animation-first"],
+      "enum": ["explainer-data", "explainer-teacher", "cinematic-trailer", "documentary-montage", "product-reveal", "screen-demo", "presenter", "animation-first", "photo-montage"],
       "description": "Locked at proposal stage — creative grammar for this deliverable. Preserved from proposal_packet; edit MUST NOT change without a logged decision."
+    },
+    "profiles": {
+      "$ref": "../profiles/composition_profiles.schema.json",
+      "description": "Profile bundle used by profile-driven compositions such as PHOTO_CORE_V1."
     },
     "render_runtime": {
       "type": "string",

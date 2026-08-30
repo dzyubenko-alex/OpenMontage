@@ -203,6 +203,13 @@ class VideoCompose(BaseTool):
                     "networks). The subprocess timeout is widened to match."
                 ),
             },
+            "browser_executable": {
+                "type": "string",
+                "description": (
+                    "Optional local Chrome/Chromium executable for Remotion. "
+                    "Avoids runtime browser downloads in offline environments."
+                ),
+            },
         },
     }
 
@@ -744,6 +751,7 @@ class VideoCompose(BaseTool):
         "screen-demo": "Explainer",
         "presenter": "TalkingHead",
         "animation-first": "Explainer",
+        "photo-montage": "PhotoCoreV1",
     }
 
     @classmethod
@@ -761,6 +769,59 @@ class VideoCompose(BaseTool):
                 f"Set renderer_family at proposal stage."
             )
         return comp
+
+    @staticmethod
+    def _resolve_output_profile(
+        inputs: dict[str, Any], composition_data: dict[str, Any] | None
+    ) -> str | None:
+        """Resolve Export profile without silently overriding an explicit profile."""
+        explicit = inputs.get("profile") or inputs.get("output_profile")
+        embedded = (
+            ((composition_data or {}).get("profiles") or {})
+            .get("export", {})
+            .get("media_profile")
+        )
+        if explicit and embedded and explicit != embedded:
+            raise ValueError(
+                "Export profile conflict: explicit profile "
+                f"{explicit!r} does not match profiles.export.media_profile "
+                f"{embedded!r}. Resolve the profile decision before rendering."
+            )
+        selected = explicit or embedded
+        if selected:
+            from lib.media_profiles import get_profile
+
+            get_profile(selected)
+        return selected
+
+    @staticmethod
+    def _resolve_photo_profile_assets(
+        composition_data: dict[str, Any], asset_lookup: dict[str, dict[str, Any]]
+    ) -> dict[str, Any]:
+        """Resolve PHOTO_CORE_V1 audio and branding references from asset IDs."""
+        resolved = json.loads(json.dumps(composition_data))
+        profiles = resolved.get("profiles") or {}
+        branding = profiles.get("branding") or {}
+        logo_ref = branding.get("logo_src")
+        if logo_ref in asset_lookup:
+            branding["logo_src"] = asset_lookup[logo_ref]["path"]
+
+        audio = resolved.get("audio") or {}
+        narration = audio.get("narration") or {}
+        if narration.get("src") in asset_lookup:
+            narration["src"] = asset_lookup[narration["src"]]["path"]
+        for segment in narration.get("segments") or []:
+            asset_ref = segment.get("asset_id") or segment.get("src")
+            if asset_ref in asset_lookup:
+                segment["src"] = asset_lookup[asset_ref]["path"]
+            segment.pop("asset_id", None)
+
+        music = audio.get("music") or {}
+        music_ref = music.get("asset_id") or music.get("src")
+        if music_ref in asset_lookup:
+            music["src"] = asset_lookup[music_ref]["path"]
+        music.pop("asset_id", None)
+        return resolved
 
     @staticmethod
     def _cuts_to_cinematic_scenes(cuts: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1042,6 +1103,8 @@ class VideoCompose(BaseTool):
             cmd.append(f"--crf={bespoke['crf']}")
         if bespoke.get("concurrency"):
             cmd.append(f"--concurrency={bespoke['concurrency']}")
+        if inputs.get("browser_executable"):
+            cmd.append(f"--browser-executable={inputs['browser_executable']}")
 
         try:
             # Run from inside the composer dir so npx resolves the local
@@ -1634,8 +1697,12 @@ class VideoCompose(BaseTool):
         if validation_block is not None:
             return validation_block
 
-        # Also accept profile as "output_profile" (skill convention) or "profile"
-        profile = inputs.get("profile") or inputs.get("output_profile")
+        # Profile-driven compositions may carry the export decision in their
+        # canonical props. An explicit tool input may confirm it, never replace it.
+        try:
+            profile = self._resolve_output_profile(inputs, edit_decisions)
+        except ValueError as exc:
+            return ToolResult(success=False, error=str(exc))
 
         if render_runtime == "hyperframes":
             return self._render_via_hyperframes(
@@ -1657,8 +1724,13 @@ class VideoCompose(BaseTool):
             )
         # --- Explicit Remotion path (render_runtime == 'remotion') ---
         if self._needs_remotion(resolved_cuts):
+            remotion_composition_data = dict(edit_decisions, cuts=resolved_cuts)
+            if edit_decisions.get("renderer_family") == "photo-montage":
+                remotion_composition_data = self._resolve_photo_profile_assets(
+                    remotion_composition_data, asset_lookup
+                )
             remotion_inputs: dict[str, Any] = {
-                "edit_decisions": dict(edit_decisions, cuts=resolved_cuts),
+                "edit_decisions": remotion_composition_data,
                 "output_path": str(output_path),
             }
             if profile:
@@ -1668,6 +1740,8 @@ class VideoCompose(BaseTool):
             # would only take effect on a direct _remotion_render() call.
             if inputs.get("remotion_timeout_ms") is not None:
                 remotion_inputs["remotion_timeout_ms"] = inputs["remotion_timeout_ms"]
+            if inputs.get("browser_executable") is not None:
+                remotion_inputs["browser_executable"] = inputs["browser_executable"]
             if inputs.get("public_dir") is not None:
                 remotion_inputs["public_dir"] = inputs["public_dir"]
             render_result = self._remotion_render(remotion_inputs)
@@ -2030,7 +2104,21 @@ class VideoCompose(BaseTool):
         # the staged user media instead of leaving it on disk.
         props_path = output_path.parent / ".remotion_props.json"
         staged_count = 0
-        profile_name = inputs.get("profile")
+        try:
+            profile_name = self._resolve_output_profile(inputs, composition_data)
+        except ValueError as exc:
+            return ToolResult(success=False, error=str(exc))
+        if profile_name and props.get("profiles", {}).get("export") is not None:
+            from lib.media_profiles import get_profile
+
+            media_profile = get_profile(profile_name)
+            props["profiles"]["export"].update(
+                {
+                    "width": media_profile.width,
+                    "height": media_profile.height,
+                    "fps": media_profile.fps,
+                }
+            )
         try:
             staged_count = self._stage_remotion_media(props, public_dir)
             if not staged_count and cleanup_public_dir:
@@ -2061,6 +2149,8 @@ class VideoCompose(BaseTool):
             ]
             if public_dir is not None:
                 cmd.append(f"--public-dir={public_dir}")
+            if inputs.get("browser_executable"):
+                cmd.append(f"--browser-executable={inputs['browser_executable']}")
 
             # Apply media profile dimensions
             if profile_name:
