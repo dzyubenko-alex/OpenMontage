@@ -99,7 +99,8 @@
         "media_profile": { "type": "string", "minLength": 1 },
         "width": { "type": "integer", "minimum": 1, "readOnly": true },
         "height": { "type": "integer", "minimum": 1, "readOnly": true },
-        "fps": { "type": "integer", "minimum": 1, "readOnly": true }
+        "fps": { "type": "integer", "minimum": 1, "readOnly": true },
+        "preview": { "$ref": "preview_export_profile.schema.json" }
       },
       "additionalProperties": false
     }

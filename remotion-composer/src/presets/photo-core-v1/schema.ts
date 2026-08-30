@@ -78,6 +78,15 @@ export const photoCoreV1Schema = z.object({
       width: z.number().int().positive().optional(),
       height: z.number().int().positive().optional(),
       fps: z.number().int().positive().optional(),
+      preview: z.object({
+        enabled: z.boolean().default(false),
+        root: z.string(),
+        mode: z.enum(["PHOTO", "VIDEO", "HYBRID"]),
+        filename_template: z.string(),
+        timestamp_format: z.string(),
+        on_conflict: z.enum(["increment", "error"]),
+        failure_policy: z.enum(["warn", "error"]),
+      }).optional(),
     }),
   }),
   audio: z.object({

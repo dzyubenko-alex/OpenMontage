@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openmontage/profiles/preview_export_profile",
+  "title": "Preview Export Profile",
+  "description": "Best-effort copy of a successful primary render to a user-facing preview directory.",
+  "type": "object",
+  "required": ["enabled", "root", "mode", "filename_template", "timestamp_format", "on_conflict", "failure_policy"],
+  "properties": {
+    "enabled": { "type": "boolean", "default": false },
+    "root": { "type": "string" },
+    "mode": { "type": "string", "enum": ["PHOTO", "VIDEO", "HYBRID"] },
+    "filename_template": { "type": "string", "default": "{project}-{mode}-{timestamp}.{ext}" },
+    "timestamp_format": { "type": "string", "default": "%Y%m%d-%H%M%S" },
+    "on_conflict": { "type": "string", "enum": ["increment", "error"], "default": "increment" },
+    "failure_policy": { "type": "string", "enum": ["warn", "error"], "default": "warn" }
+  },
+  "additionalProperties": false
+}

@@ -96,6 +96,13 @@ class VideoCompose(BaseTool):
             },
             "input_path": {"type": "string"},
             "output_path": {"type": "string"},
+            "project_name": {
+                "type": "string",
+                "description": (
+                    "Project name used by profiles.export.preview filename_template. "
+                    "Sanitized before it is used in a Windows filename."
+                ),
+            },
             "edit_decisions": {
                 "type": "object",
                 "description": "Full edit_decisions artifact (required for compose/render)",
@@ -350,6 +357,8 @@ class VideoCompose(BaseTool):
                 result = self._compose(inputs)
             elif operation == "render":
                 result = self._render(inputs)
+                if result.success:
+                    result = self._apply_preview_export(result, inputs)
             elif operation == "remotion_render":
                 result = self._remotion_render(inputs)
             elif operation == "burn_subtitles":
@@ -364,6 +373,63 @@ class VideoCompose(BaseTool):
             return ToolResult(success=False, error=str(e))
 
         result.duration_seconds = round(time.time() - start, 2)
+        return result
+
+    @staticmethod
+    def _apply_preview_export(
+        result: ToolResult, inputs: dict[str, Any]
+    ) -> ToolResult:
+        """Attach a renderer-independent Preview Export diagnostic."""
+
+        edit_decisions = inputs.get("edit_decisions") or {}
+        preview_profile = (
+            edit_decisions.get("profiles", {})
+            .get("export", {})
+            .get("preview")
+        )
+        if preview_profile is None:
+            return result
+
+        source_path = (
+            (result.data or {}).get("output")
+            or inputs.get("output_path")
+            or (result.artifacts[0] if result.artifacts else "")
+        )
+        source = Path(source_path) if source_path else Path("")
+        project_name = (
+            inputs.get("project_name")
+            or edit_decisions.get("project_id")
+            or edit_decisions.get("title")
+        )
+        if not project_name:
+            # Standard project renders end in projects/<project>/renders/<file>.
+            project_name = (
+                source.parent.parent.name
+                if source.parent.name == "renders"
+                else source.stem or "project"
+            )
+
+        from lib.preview_export import export_preview
+
+        diagnostic = export_preview(
+            source,
+            preview_profile,
+            project_name=str(project_name),
+        )
+        if result.data is None:
+            result.data = {}
+        result.data["preview_export"] = diagnostic
+
+        if diagnostic["status"] == "warning":
+            warning = diagnostic.get("warning") or "Preview Export failed"
+            if preview_profile.get("failure_policy", "warn") == "error":
+                result.success = False
+                result.error = warning
+            else:
+                logging.getLogger(__name__).warning("[preview-export] %s", warning)
+        elif diagnostic.get("copied") and diagnostic.get("destination_path"):
+            result.artifacts.append(diagnostic["destination_path"])
+
         return result
 
     _IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".webp"}
