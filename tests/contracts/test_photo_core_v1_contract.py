@@ -118,3 +118,30 @@ def test_music_ducking_is_scoped_to_active_narration_intervals() -> None:
     assert "profiles.music.ducking.enabled && narrationActive" in composition
     assert "musicBaseVolume * duckingMultiplier" in composition
     assert "profiles.music.ducking.enabled && voiceActive" not in composition
+
+
+def test_preview_export_profile_is_optional_and_disabled_by_default() -> None:
+    preview_schema = json.loads(
+        (REPO_ROOT / "schemas" / "profiles" / "preview_export_profile.schema.json")
+        .read_text(encoding="utf-8")
+    )
+    composition_schema = json.loads(
+        (REPO_ROOT / "schemas" / "profiles" / "composition_profiles.schema.json")
+        .read_text(encoding="utf-8")
+    )
+    example = json.loads(
+        (REPO_ROOT / "profiles" / "export" / "preview-windows.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    defaults = (PRESET_DIR / "defaults.ts").read_text(encoding="utf-8")
+
+    export_schema = composition_schema["properties"]["export"]
+    assert preview_schema["properties"]["enabled"]["default"] is False
+    assert preview_schema["properties"]["mode"]["enum"] == ["PHOTO", "VIDEO", "HYBRID"]
+    assert "preview" not in export_schema["required"]
+    assert export_schema["properties"]["preview"]["$ref"].endswith(
+        "preview_export_profile.schema.json"
+    )
+    Draft202012Validator(preview_schema).validate(example)
+    assert "enabled: false" in defaults

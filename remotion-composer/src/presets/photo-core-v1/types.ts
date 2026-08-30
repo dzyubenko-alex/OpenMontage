@@ -71,6 +71,15 @@ export type ExportProfile = {
   width?: number;
   height?: number;
   fps?: number;
+  preview?: {
+    enabled: boolean;
+    root: string;
+    mode: "PHOTO" | "VIDEO" | "HYBRID";
+    filename_template: string;
+    timestamp_format: string;
+    on_conflict: "increment" | "error";
+    failure_policy: "warn" | "error";
+  };
 };
 
 export type PhotoCoreProfiles = {

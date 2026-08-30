@@ -1,0 +1,9 @@
+{
+  "enabled": false,
+  "root": "/mnt/c/Users/HONOR/Videos/OpenMontage/Preview/Output",
+  "mode": "PHOTO",
+  "filename_template": "{project}-{mode}-{timestamp}.{ext}",
+  "timestamp_format": "%Y%m%d-%H%M%S",
+  "on_conflict": "increment",
+  "failure_policy": "warn"
+}
