@@ -22,6 +22,12 @@ import {
   photoCoreV1DefaultProps,
   photoCoreV1Schema,
 } from "./presets/photo-core-v1";
+import {
+  VideoCoreV1,
+  calculateVideoCoreV1Metadata,
+  videoCoreV1DefaultProps,
+  videoCoreV1Schema,
+} from "./presets/video-core-v1";
 
 // ---------------------------------------------------------------------------
 // Theme System — prevents every video from looking like dark fintech
@@ -166,6 +172,17 @@ export const Root: React.FC = () => {
         defaultProps={photoCoreV1DefaultProps}
         calculateMetadata={calculatePhotoCoreV1Metadata}
         schema={photoCoreV1Schema}
+      />
+      <Composition
+        id="VideoCoreV1"
+        component={VideoCoreV1}
+        durationInFrames={30}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={videoCoreV1DefaultProps}
+        calculateMetadata={calculateVideoCoreV1Metadata}
+        schema={videoCoreV1Schema}
       />
       <Composition
         id="CinematicRenderer"

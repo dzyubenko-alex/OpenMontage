@@ -18,6 +18,10 @@
           "in_seconds": { "type": "number", "minimum": 0 },
           "out_seconds": { "type": "number", "minimum": 0 },
           "speed": { "type": "number", "minimum": 0.1, "default": 1.0 },
+          "clip_duration_seconds": { "type": "number", "exclusiveMinimum": 0 },
+          "playback_rate": { "type": "number", "exclusiveMinimum": 0 },
+          "source_audio": { "type": "string", "enum": ["muted", "original"] },
+          "source_audio_volume": { "type": "number", "minimum": 0, "maximum": 1 },
           "layer": {
             "type": "string",
             "enum": ["primary", "overlay", "background"],
@@ -27,7 +31,19 @@
             "type": "object",
             "properties": {
               "scale": { "type": "number", "minimum": 0, "default": 1.0 },
-              "position": { "type": "string", "default": "center" },
+              "position": {
+                "description": "Media object position as a CSS-compatible string or percentage coordinates.",
+                "oneOf": [
+                  { "type": "string" },
+                  {
+                    "type": "object",
+                    "properties": {"x": {"type": "number"}, "y": {"type": "number"}},
+                    "required": ["x", "y"],
+                    "additionalProperties": false
+                  }
+                ],
+                "default": "center"
+              },
               "animation": {
                 "type": "string",
                 "description": "Motion applied to still images (e.g. ken-burns-slow-zoom, pan-left, static)"
@@ -198,7 +214,7 @@
     },
     "renderer_family": {
       "type": "string",
-      "enum": ["explainer-data", "explainer-teacher", "cinematic-trailer", "documentary-montage", "product-reveal", "screen-demo", "presenter", "animation-first", "photo-montage"],
+      "enum": ["explainer-data", "explainer-teacher", "cinematic-trailer", "documentary-montage", "product-reveal", "screen-demo", "presenter", "animation-first", "photo-montage", "video-montage"],
       "description": "Locked at proposal stage — creative grammar for this deliverable. Preserved from proposal_packet; edit MUST NOT change without a logged decision."
     },
     "profiles": {
@@ -240,5 +256,48 @@
     },
     "metadata": { "type": "object" }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"renderer_family": {"const": "photo-montage"}},
+        "required": ["renderer_family"]
+      },
+      "then": {
+        "required": ["profiles"],
+        "properties": {
+          "profiles": {
+            "required": ["editing"],
+            "properties": {
+              "editing": {
+                "required": ["motion", "transition", "transition_seconds", "image_fit", "background_color", "scale_from", "scale_to", "pan_x", "pan_y"]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"renderer_family": {"const": "video-montage"}},
+        "required": ["renderer_family"]
+      },
+      "then": {
+        "required": ["profiles"],
+        "properties": {
+          "profiles": {
+            "required": ["editing", "source_audio"],
+            "properties": {
+              "editing": {
+                "required": ["transition", "transition_seconds", "video_fit", "background_color"]
+              },
+              "source_audio": {
+                "required": ["default_mode", "volume", "ducking"]
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
   "additionalProperties": false
 }

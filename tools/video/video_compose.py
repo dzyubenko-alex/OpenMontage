@@ -818,6 +818,7 @@ class VideoCompose(BaseTool):
         "presenter": "TalkingHead",
         "animation-first": "Explainer",
         "photo-montage": "PhotoCoreV1",
+        "video-montage": "VideoCoreV1",
     }
 
     @classmethod
@@ -864,7 +865,7 @@ class VideoCompose(BaseTool):
     def _resolve_photo_profile_assets(
         composition_data: dict[str, Any], asset_lookup: dict[str, dict[str, Any]]
     ) -> dict[str, Any]:
-        """Resolve PHOTO_CORE_V1 audio and branding references from asset IDs."""
+        """Resolve profile-driven composition audio and branding asset IDs."""
         resolved = json.loads(json.dumps(composition_data))
         profiles = resolved.get("profiles") or {}
         branding = profiles.get("branding") or {}
@@ -888,6 +889,36 @@ class VideoCompose(BaseTool):
             music["src"] = asset_lookup[music_ref]["path"]
         music.pop("asset_id", None)
         return resolved
+
+    @staticmethod
+    def _adapt_video_core_props(composition_data: dict[str, Any]) -> dict[str, Any]:
+        """Translate canonical edit cuts into VideoCoreV1 internal media props.
+
+        Canonical artifacts own in_seconds/out_seconds. Internal
+        trim_in_seconds/trim_out_seconds exist only after this renderer
+        boundary, preventing two contradictory sources of trim truth.
+        """
+        adapted = json.loads(json.dumps(composition_data))
+        for cut in adapted.get("cuts") or []:
+            has_canonical_trim = "in_seconds" in cut or "out_seconds" in cut
+            if has_canonical_trim:
+                if "in_seconds" not in cut or "out_seconds" not in cut:
+                    raise ValueError(
+                        "VideoCoreV1 cuts require both in_seconds and out_seconds"
+                    )
+                cut["trim_in_seconds"] = cut.pop("in_seconds")
+                cut["trim_out_seconds"] = cut.pop("out_seconds")
+
+            if "trim_in_seconds" not in cut or "trim_out_seconds" not in cut:
+                raise ValueError(
+                    "VideoCoreV1 internal cuts require normalized trim bounds"
+                )
+
+            if "playback_rate" not in cut:
+                cut["playback_rate"] = cut.get("speed", 1.0)
+            cut.pop("speed", None)
+
+        return adapted
 
     @staticmethod
     def _cuts_to_cinematic_scenes(cuts: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1791,9 +1822,13 @@ class VideoCompose(BaseTool):
         # --- Explicit Remotion path (render_runtime == 'remotion') ---
         if self._needs_remotion(resolved_cuts):
             remotion_composition_data = dict(edit_decisions, cuts=resolved_cuts)
-            if edit_decisions.get("renderer_family") == "photo-montage":
+            if edit_decisions.get("renderer_family") in {"photo-montage", "video-montage"}:
                 remotion_composition_data = self._resolve_photo_profile_assets(
                     remotion_composition_data, asset_lookup
+                )
+            if edit_decisions.get("renderer_family") == "video-montage":
+                remotion_composition_data = self._adapt_video_core_props(
+                    remotion_composition_data
                 )
             remotion_inputs: dict[str, Any] = {
                 "edit_decisions": remotion_composition_data,
@@ -2108,6 +2143,8 @@ class VideoCompose(BaseTool):
 
         # Deep-copy props so we don't mutate the original
         props = json.loads(json.dumps(composition_data))
+        if props.get("renderer_family") == "video-montage":
+            props = self._adapt_video_core_props(props)
 
         # Build a custom themeConfig from the playbook's actual colors.
         # This ensures every video gets a unique visual identity derived
