@@ -818,6 +818,7 @@ class VideoCompose(BaseTool):
         "presenter": "TalkingHead",
         "animation-first": "Explainer",
         "photo-montage": "PhotoCoreV1",
+        "video-montage": "VideoCoreV1",
     }
 
     @classmethod
@@ -864,7 +865,7 @@ class VideoCompose(BaseTool):
     def _resolve_photo_profile_assets(
         composition_data: dict[str, Any], asset_lookup: dict[str, dict[str, Any]]
     ) -> dict[str, Any]:
-        """Resolve PHOTO_CORE_V1 audio and branding references from asset IDs."""
+        """Resolve profile-driven composition audio and branding asset IDs."""
         resolved = json.loads(json.dumps(composition_data))
         profiles = resolved.get("profiles") or {}
         branding = profiles.get("branding") or {}
@@ -1791,7 +1792,7 @@ class VideoCompose(BaseTool):
         # --- Explicit Remotion path (render_runtime == 'remotion') ---
         if self._needs_remotion(resolved_cuts):
             remotion_composition_data = dict(edit_decisions, cuts=resolved_cuts)
-            if edit_decisions.get("renderer_family") == "photo-montage":
+            if edit_decisions.get("renderer_family") in {"photo-montage", "video-montage"}:
                 remotion_composition_data = self._resolve_photo_profile_assets(
                     remotion_composition_data, asset_lookup
                 )
