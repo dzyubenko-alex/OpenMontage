@@ -51,6 +51,24 @@ def test_hybrid_adapter_normalizes_photo_and_video_without_mutation() -> None:
     assert "in_seconds" not in photo and "out_seconds" not in video and "speed" not in video
     assert "duration_seconds" not in FIXTURE["cuts"][0]
     assert "trim_in_seconds" not in FIXTURE["cuts"][1]
+    assert VideoCompose._adapt_hybrid_core_props(adapted) == adapted
+
+
+@pytest.mark.parametrize("transition", ["cut", "fade"])
+def test_supported_hybrid_transitions_validate(transition: str) -> None:
+    artifact = json.loads(json.dumps(FIXTURE))
+    artifact.pop("captions")
+    artifact["cuts"][0]["transition_out"] = transition
+    artifact["cuts"][1]["transition_in"] = transition
+    validator().validate(artifact)
+
+
+def test_unsupported_hybrid_transition_is_rejected_before_renderer() -> None:
+    artifact = json.loads(json.dumps(FIXTURE))
+    artifact.pop("captions")
+    artifact["cuts"][0]["transition_out"] = "wipe"
+    with pytest.raises(ValidationError):
+        validator().validate(artifact)
 
 def test_hybrid_timeline_and_metadata_share_frame_builder() -> None:
     timeline = (PRESET / "timeline.ts").read_text()

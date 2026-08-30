@@ -934,12 +934,11 @@ class VideoCompose(BaseTool):
             media_type = cut.get("media_type")
             if media_type not in {"photo", "video"}:
                 raise ValueError("HybridCoreV1 cuts require media_type photo or video")
-            if "in_seconds" not in cut or "out_seconds" not in cut:
+            has_canonical = "in_seconds" in cut or "out_seconds" in cut
+            if has_canonical and not ({"in_seconds", "out_seconds"} <= cut.keys()):
                 raise ValueError(
                     "HybridCoreV1 canonical cuts require in_seconds and out_seconds"
                 )
-            source_in = cut.pop("in_seconds")
-            source_out = cut.pop("out_seconds")
 
             if media_type == "photo":
                 forbidden = {
@@ -951,20 +950,38 @@ class VideoCompose(BaseTool):
                         "HybridCoreV1 photo cuts cannot use video-only fields: "
                         + ", ".join(sorted(forbidden))
                     )
-                duration = float(source_out) - float(source_in)
+                if has_canonical:
+                    source_in = cut.pop("in_seconds")
+                    source_out = cut.pop("out_seconds")
+                    duration = float(source_out) - float(source_in)
+                    cut["duration_seconds"] = duration
+                elif "duration_seconds" in cut:
+                    duration = float(cut["duration_seconds"])
+                else:
+                    raise ValueError(
+                        "HybridCoreV1 internal photo cuts require duration_seconds"
+                    )
                 if duration <= 0:
                     raise ValueError("HybridCoreV1 photo duration must be positive")
-                cut["duration_seconds"] = duration
                 continue
 
             transform = cut.get("transform") or {}
             if "animation" in transform:
                 raise ValueError("HybridCoreV1 video cuts cannot use PHOTO animation")
-            cut["trim_in_seconds"] = source_in
-            cut["trim_out_seconds"] = source_out
+            if has_canonical:
+                cut["trim_in_seconds"] = cut.pop("in_seconds")
+                cut["trim_out_seconds"] = cut.pop("out_seconds")
+            elif not ({"trim_in_seconds", "trim_out_seconds"} <= cut.keys()):
+                raise ValueError(
+                    "HybridCoreV1 internal video cuts require normalized trim bounds"
+                )
             if "playback_rate" not in cut:
                 cut["playback_rate"] = cut.get("speed", 1.0)
             cut.pop("speed", None)
+            if float(cut["trim_out_seconds"]) <= float(cut["trim_in_seconds"]):
+                raise ValueError(
+                    "HybridCoreV1 trim_out_seconds must exceed trim_in_seconds"
+                )
 
         return adapted
 
@@ -1880,8 +1897,6 @@ class VideoCompose(BaseTool):
                 remotion_composition_data = self._adapt_video_core_props(
                     remotion_composition_data
                 )
-            if edit_decisions.get("renderer_family") == "hybrid-montage":
-                remotion_composition_data = self._adapt_hybrid_core_props(remotion_composition_data)
             remotion_inputs: dict[str, Any] = {
                 "edit_decisions": remotion_composition_data,
                 "output_path": str(output_path),

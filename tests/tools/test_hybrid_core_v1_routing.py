@@ -25,12 +25,21 @@ def test_profile_assets_resolve_for_hybrid_without_mutation() -> None:
 def test_high_level_hybrid_route_passes_normalized_props(monkeypatch, tmp_path) -> None:
     tool = VideoCompose()
     captured = {}
+    calls = 0
+    original_adapter = VideoCompose._adapt_hybrid_core_props
+
+    def counting_adapter(data):
+        nonlocal calls
+        calls += 1
+        return original_adapter(data)
+
+    monkeypatch.setattr(VideoCompose, "_adapt_hybrid_core_props", staticmethod(counting_adapter))
     monkeypatch.setattr(tool, "_pre_compose_validation", lambda *args, **kwargs: None)
     monkeypatch.setattr(tool, "_needs_remotion", lambda cuts: True)
     monkeypatch.setattr(tool, "_run_final_review", lambda *args, **kwargs: {})
 
     def fake_render(inputs):
-        captured.update(inputs)
+        captured.update(inputs | {"edit_decisions": tool._adapt_hybrid_core_props(inputs["edit_decisions"])})
         from tools.base_tool import ToolResult
         return ToolResult(success=True, data={}, artifacts=[])
 
@@ -44,6 +53,7 @@ def test_high_level_hybrid_route_passes_normalized_props(monkeypatch, tmp_path) 
         "output_path": str(tmp_path / "out.mp4"),
     })
     assert result.success
+    assert calls == 1
     props = captured["edit_decisions"]
     assert props["renderer_family"] == "hybrid-montage"
     assert props["cuts"][0]["source"] == "/tmp/photo.svg"

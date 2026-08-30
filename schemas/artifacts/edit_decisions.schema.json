@@ -327,6 +327,10 @@
           },
           "cuts": {
             "items": {
+              "properties": {
+                "transition_in": {"type": "string", "enum": ["cut", "fade"]},
+                "transition_out": {"type": "string", "enum": ["cut", "fade"]}
+              },
               "allOf": [
                 {"required": ["media_type"]},
                 {
