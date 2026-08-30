@@ -19,6 +19,18 @@ const positionStyle = (profile: BrandingProfile): React.CSSProperties => ({
   right: profile.position.endsWith("right") ? profile.safe_margin : undefined,
 });
 
+export const narrationIsActiveAtFrame = (
+  frame: number,
+  fps: number,
+  segments: NonNullable<NonNullable<PhotoCoreV1Props["audio"]>["narration"]>["segments"],
+) => (segments ?? []).some((segment) => {
+  const startFrame = Math.round((segment.start_seconds ?? 0) * fps);
+  const endFrame = segment.end_seconds === undefined
+    ? Number.POSITIVE_INFINITY
+    : Math.round(segment.end_seconds * fps);
+  return frame >= startFrame && frame < endFrame;
+});
+
 const BrandLayer: React.FC<{profile: BrandingProfile}> = ({profile}) => {
   if (!profile.enabled || !profile.logo_src) return null;
   return (
@@ -77,11 +89,7 @@ export const PhotoCoreV1: React.FC<PhotoCoreV1Props> = ({cuts, profiles, audio, 
   );
   const music = audio?.music;
   const voiceActive = profiles.voice.enabled && narrationSegments.length > 0;
-  const musicBaseVolume = profiles.music.volume * (
-    profiles.music.ducking.enabled && voiceActive
-      ? profiles.music.ducking.volume_multiplier
-      : 1
-  );
+  const musicBaseVolume = profiles.music.volume;
 
   return (
     <AbsoluteFill style={{backgroundColor: profiles.editing.background_color}}>
@@ -114,14 +122,23 @@ export const PhotoCoreV1: React.FC<PhotoCoreV1Props> = ({cuts, profiles, audio, 
           loop={profiles.music.loop}
           loopVolumeCurveBehavior="repeat"
           volume={(frame) => {
+            const narrationActive = voiceActive && narrationIsActiveAtFrame(
+              frame,
+              fps,
+              narrationSegments,
+            );
+            const duckingMultiplier = profiles.music.ducking.enabled && narrationActive
+              ? profiles.music.ducking.volume_multiplier
+              : 1;
+            const frameVolume = musicBaseVolume * duckingMultiplier;
             const fadeInFrames = profiles.music.fade_in_seconds * fps;
             const fadeOutFrames = profiles.music.fade_out_seconds * fps;
             const fadeIn = fadeInFrames > 0
-              ? interpolate(frame, [0, fadeInFrames], [0, musicBaseVolume], {extrapolateLeft: "clamp", extrapolateRight: "clamp"})
-              : musicBaseVolume;
+              ? interpolate(frame, [0, fadeInFrames], [0, frameVolume], {extrapolateLeft: "clamp", extrapolateRight: "clamp"})
+              : frameVolume;
             const fadeOut = fadeOutFrames > 0
-              ? interpolate(frame, [durationInFrames - fadeOutFrames, durationInFrames], [musicBaseVolume, 0], {extrapolateLeft: "clamp", extrapolateRight: "clamp"})
-              : musicBaseVolume;
+              ? interpolate(frame, [durationInFrames - fadeOutFrames, durationInFrames], [frameVolume, 0], {extrapolateLeft: "clamp", extrapolateRight: "clamp"})
+              : frameVolume;
             return Math.min(fadeIn, fadeOut);
           }}
         />

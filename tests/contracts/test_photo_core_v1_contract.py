@@ -107,3 +107,14 @@ def test_edit_decisions_crop_is_a_complete_composition_viewport() -> None:
     assert crop["required"] == ["x", "y", "width", "height"]
     assert "composition pixels" in crop["description"]
     assert crop["additionalProperties"] is False
+
+
+def test_music_ducking_is_scoped_to_active_narration_intervals() -> None:
+    composition = (PRESET_DIR / "PhotoCoreV1.tsx").read_text(encoding="utf-8")
+
+    assert "narrationIsActiveAtFrame" in composition
+    assert "frame >= startFrame && frame < endFrame" in composition
+    assert "Number.POSITIVE_INFINITY" in composition
+    assert "profiles.music.ducking.enabled && narrationActive" in composition
+    assert "musicBaseVolume * duckingMultiplier" in composition
+    assert "profiles.music.ducking.enabled && voiceActive" not in composition

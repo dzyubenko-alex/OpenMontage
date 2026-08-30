@@ -1103,6 +1103,8 @@ class VideoCompose(BaseTool):
             cmd.append(f"--crf={bespoke['crf']}")
         if bespoke.get("concurrency"):
             cmd.append(f"--concurrency={bespoke['concurrency']}")
+        if inputs.get("browser_executable"):
+            cmd.append(f"--browser-executable={inputs['browser_executable']}")
 
         try:
             # Run from inside the composer dir so npx resolves the local
@@ -1738,6 +1740,8 @@ class VideoCompose(BaseTool):
             # would only take effect on a direct _remotion_render() call.
             if inputs.get("remotion_timeout_ms") is not None:
                 remotion_inputs["remotion_timeout_ms"] = inputs["remotion_timeout_ms"]
+            if inputs.get("browser_executable") is not None:
+                remotion_inputs["browser_executable"] = inputs["browser_executable"]
             if inputs.get("public_dir") is not None:
                 remotion_inputs["public_dir"] = inputs["public_dir"]
             render_result = self._remotion_render(remotion_inputs)
