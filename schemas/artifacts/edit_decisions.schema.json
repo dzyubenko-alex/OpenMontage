@@ -14,6 +14,7 @@
         "required": ["id", "source", "in_seconds", "out_seconds"],
         "properties": {
           "id": { "type": "string" },
+          "media_type": { "type": "string", "enum": ["photo", "video"] },
           "source": { "type": "string", "description": "Source file path or asset-manifest ID" },
           "in_seconds": { "type": "number", "minimum": 0 },
           "out_seconds": { "type": "number", "minimum": 0 },
@@ -214,7 +215,7 @@
     },
     "renderer_family": {
       "type": "string",
-      "enum": ["explainer-data", "explainer-teacher", "cinematic-trailer", "documentary-montage", "product-reveal", "screen-demo", "presenter", "animation-first", "photo-montage", "video-montage"],
+      "enum": ["explainer-data", "explainer-teacher", "cinematic-trailer", "documentary-montage", "product-reveal", "screen-demo", "presenter", "animation-first", "photo-montage", "video-montage", "hybrid-montage"],
       "description": "Locked at proposal stage — creative grammar for this deliverable. Preserved from proposal_packet; edit MUST NOT change without a logged decision."
     },
     "profiles": {
@@ -293,6 +294,74 @@
               "source_audio": {
                 "required": ["default_mode", "volume", "ducking"]
               }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"renderer_family": {"const": "hybrid-montage"}},
+        "required": ["renderer_family"]
+      },
+      "then": {
+        "required": ["profiles"],
+        "properties": {
+          "profiles": {
+            "required": ["editing", "source_audio"],
+            "properties": {
+              "editing": {
+                "required": ["motion", "transition", "transition_seconds", "image_fit", "video_fit", "background_color", "scale_from", "scale_to", "pan_x", "pan_y"]
+              },
+              "source_audio": {
+                "required": ["default_mode", "volume", "ducking"]
+              },
+              "export": {
+                "properties": {
+                  "preview": {
+                    "properties": {"mode": {"const": "HYBRID"}}
+                  }
+                }
+              }
+            }
+          },
+          "cuts": {
+            "items": {
+              "properties": {
+                "transition_in": {"type": "string", "enum": ["cut", "fade"]},
+                "transition_out": {"type": "string", "enum": ["cut", "fade"]}
+              },
+              "allOf": [
+                {"required": ["media_type"]},
+                {
+                  "if": {
+                    "properties": {"media_type": {"const": "photo"}},
+                    "required": ["media_type"]
+                  },
+                  "then": {
+                    "not": {
+                      "anyOf": [
+                        {"required": ["source_audio"]},
+                        {"required": ["source_audio_volume"]},
+                        {"required": ["speed"]},
+                        {"required": ["playback_rate"]},
+                        {"required": ["clip_duration_seconds"]}
+                      ]
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {"media_type": {"const": "video"}},
+                    "required": ["media_type"]
+                  },
+                  "then": {
+                    "properties": {
+                      "transform": {"not": {"required": ["animation"]}}
+                    }
+                  }
+                }
+              ]
             }
           }
         }

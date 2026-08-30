@@ -819,6 +819,7 @@ class VideoCompose(BaseTool):
         "animation-first": "Explainer",
         "photo-montage": "PhotoCoreV1",
         "video-montage": "VideoCoreV1",
+        "hybrid-montage": "HybridCoreV1",
     }
 
     @classmethod
@@ -917,6 +918,70 @@ class VideoCompose(BaseTool):
             if "playback_rate" not in cut:
                 cut["playback_rate"] = cut.get("speed", 1.0)
             cut.pop("speed", None)
+
+        return adapted
+
+    @staticmethod
+    def _adapt_hybrid_core_props(composition_data: dict[str, Any]) -> dict[str, Any]:
+        """Normalize canonical hybrid cuts at the renderer boundary.
+
+        ``media_type`` is the sole discriminator. Canonical artifacts retain
+        ``in_seconds``/``out_seconds``; renderer-only trim and photo duration
+        fields are derived here so timeline and metadata share one model.
+        """
+        adapted = json.loads(json.dumps(composition_data))
+        for cut in adapted.get("cuts") or []:
+            media_type = cut.get("media_type")
+            if media_type not in {"photo", "video"}:
+                raise ValueError("HybridCoreV1 cuts require media_type photo or video")
+            has_canonical = "in_seconds" in cut or "out_seconds" in cut
+            if has_canonical and not ({"in_seconds", "out_seconds"} <= cut.keys()):
+                raise ValueError(
+                    "HybridCoreV1 canonical cuts require in_seconds and out_seconds"
+                )
+
+            if media_type == "photo":
+                forbidden = {
+                    "source_audio", "source_audio_volume", "speed",
+                    "playback_rate", "clip_duration_seconds",
+                }.intersection(cut)
+                if forbidden:
+                    raise ValueError(
+                        "HybridCoreV1 photo cuts cannot use video-only fields: "
+                        + ", ".join(sorted(forbidden))
+                    )
+                if has_canonical:
+                    source_in = cut.pop("in_seconds")
+                    source_out = cut.pop("out_seconds")
+                    duration = float(source_out) - float(source_in)
+                    cut["duration_seconds"] = duration
+                elif "duration_seconds" in cut:
+                    duration = float(cut["duration_seconds"])
+                else:
+                    raise ValueError(
+                        "HybridCoreV1 internal photo cuts require duration_seconds"
+                    )
+                if duration <= 0:
+                    raise ValueError("HybridCoreV1 photo duration must be positive")
+                continue
+
+            transform = cut.get("transform") or {}
+            if "animation" in transform:
+                raise ValueError("HybridCoreV1 video cuts cannot use PHOTO animation")
+            if has_canonical:
+                cut["trim_in_seconds"] = cut.pop("in_seconds")
+                cut["trim_out_seconds"] = cut.pop("out_seconds")
+            elif not ({"trim_in_seconds", "trim_out_seconds"} <= cut.keys()):
+                raise ValueError(
+                    "HybridCoreV1 internal video cuts require normalized trim bounds"
+                )
+            if "playback_rate" not in cut:
+                cut["playback_rate"] = cut.get("speed", 1.0)
+            cut.pop("speed", None)
+            if float(cut["trim_out_seconds"]) <= float(cut["trim_in_seconds"]):
+                raise ValueError(
+                    "HybridCoreV1 trim_out_seconds must exceed trim_in_seconds"
+                )
 
         return adapted
 
@@ -1822,7 +1887,9 @@ class VideoCompose(BaseTool):
         # --- Explicit Remotion path (render_runtime == 'remotion') ---
         if self._needs_remotion(resolved_cuts):
             remotion_composition_data = dict(edit_decisions, cuts=resolved_cuts)
-            if edit_decisions.get("renderer_family") in {"photo-montage", "video-montage"}:
+            if edit_decisions.get("renderer_family") in {
+                "photo-montage", "video-montage", "hybrid-montage"
+            }:
                 remotion_composition_data = self._resolve_photo_profile_assets(
                     remotion_composition_data, asset_lookup
                 )
@@ -2145,6 +2212,8 @@ class VideoCompose(BaseTool):
         props = json.loads(json.dumps(composition_data))
         if props.get("renderer_family") == "video-montage":
             props = self._adapt_video_core_props(props)
+        if props.get("renderer_family") == "hybrid-montage":
+            props = self._adapt_hybrid_core_props(props)
 
         # Build a custom themeConfig from the playbook's actual colors.
         # This ensures every video gets a unique visual identity derived

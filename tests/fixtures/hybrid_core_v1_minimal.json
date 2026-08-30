@@ -1,0 +1,23 @@
+{
+  "version": "1.0", "renderer_family": "hybrid-montage", "render_runtime": "remotion",
+  "cuts": [
+    {"id": "photo-1", "media_type": "photo", "source": "photo-asset", "in_seconds": 0, "out_seconds": 3,
+      "transform": {"animation": "zoom", "position": "center"}, "transition_out": "fade"},
+    {"id": "video-1", "media_type": "video", "source": "video-asset", "in_seconds": 1, "out_seconds": 5,
+      "speed": 2, "source_audio": "original", "transform": {"position": {"x": 50, "y": 50}}, "transition_in": "fade"}
+  ],
+  "profiles": {
+    "voice": {"enabled": false, "volume": 1, "captions": {"enabled": false, "words_per_page": 6, "font_size": 42}},
+    "music": {"enabled": false, "volume": 1, "fade_in_seconds": 0, "fade_out_seconds": 0, "loop": false,
+      "ducking": {"enabled": false, "volume_multiplier": 1}},
+    "editing": {"motion": "zoom", "transition": "fade", "transition_seconds": 0.25,
+      "image_fit": "cover", "video_fit": "cover", "background_color": "#000000",
+      "scale_from": 1, "scale_to": 1.05, "pan_x": 0, "pan_y": 0},
+    "branding": {"enabled": false, "position": "top-right", "opacity": 1, "max_width": 240, "safe_margin": 48,
+      "primary_color": "#FFFFFF", "text_color": "#FFFFFF", "caption_background_color": "#000000",
+      "font_family": "Inter", "title_font_size": 72, "subtitle_font_size": 34},
+    "export": {"media_profile": "generic_hd"},
+    "source_audio": {"default_mode": "muted", "volume": 1, "ducking": {"enabled": true, "volume_multiplier": 0.5}}
+  },
+  "audio": {}, "captions": []
+}

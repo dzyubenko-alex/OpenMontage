@@ -28,6 +28,12 @@ import {
   videoCoreV1DefaultProps,
   videoCoreV1Schema,
 } from "./presets/video-core-v1";
+import {
+  HybridCoreV1,
+  calculateHybridCoreV1Metadata,
+  hybridCoreV1DefaultProps,
+  hybridCoreV1Schema,
+} from "./presets/hybrid-core-v1";
 
 // ---------------------------------------------------------------------------
 // Theme System — prevents every video from looking like dark fintech
@@ -183,6 +189,17 @@ export const Root: React.FC = () => {
         defaultProps={videoCoreV1DefaultProps}
         calculateMetadata={calculateVideoCoreV1Metadata}
         schema={videoCoreV1Schema}
+      />
+      <Composition
+        id="HybridCoreV1"
+        component={HybridCoreV1}
+        durationInFrames={30}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={hybridCoreV1DefaultProps}
+        calculateMetadata={calculateHybridCoreV1Metadata}
+        schema={hybridCoreV1Schema}
       />
       <Composition
         id="CinematicRenderer"
