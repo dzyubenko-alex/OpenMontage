@@ -1,8 +1,11 @@
 from __future__ import annotations
 import json
 from pathlib import Path
+import pytest
 from jsonschema import Draft202012Validator
+from jsonschema.exceptions import ValidationError
 
+from referencing import Registry, Resource
 ROOT = Path(__file__).resolve().parents[2]
 PRESET = ROOT / "remotion-composer/src/presets/video-core-v1"
 FIXTURE = json.loads((ROOT / "tests/fixtures/video_core_v1_minimal.json").read_text())
@@ -10,14 +13,53 @@ FIXTURE = json.loads((ROOT / "tests/fixtures/video_core_v1_minimal.json").read_t
 def test_video_core_fixture_and_profile_bundle_validate() -> None:
     edit_schema = json.loads((ROOT / "schemas/artifacts/edit_decisions.schema.json").read_text())
     profiles_schema = json.loads((ROOT / "schemas/profiles/composition_profiles.schema.json").read_text())
-    edit_without_external_ref = dict(FIXTURE)
-    edit_without_external_ref.pop("profiles")
-    edit_without_external_ref.pop("captions")
-    Draft202012Validator(edit_schema).validate(edit_without_external_ref)
-    profiles_without_external_ref = json.loads(json.dumps(FIXTURE["profiles"]))
-    profiles_without_external_ref["export"].pop("preview")
-    Draft202012Validator(profiles_schema).validate(profiles_without_external_ref)
+    profile_resource = Resource.from_contents(profiles_schema)
+    registry = (
+        Registry()
+        .with_resource("openmontage/profiles/composition_profiles.schema.json", profile_resource)
+        .with_resource(
+            "openmontage/artifacts/openmontage/profiles/composition_profiles.schema.json",
+            profile_resource,
+        )
+    )
+    artifact = json.loads(json.dumps(FIXTURE))
+    artifact.pop("captions")
+    Draft202012Validator(edit_schema, registry=registry).validate(artifact)
+    Draft202012Validator(profiles_schema).validate(FIXTURE["profiles"])
     assert profiles_schema["required"] == ["voice", "music", "editing", "branding", "export"]
+
+def test_old_photo_profile_remains_valid_and_strict() -> None:
+    profiles_schema = json.loads((ROOT / "schemas/profiles/composition_profiles.schema.json").read_text())
+    photo = json.loads((ROOT / "tests/fixtures/photo_core_v1_minimal.json").read_text())
+    validator = Draft202012Validator(profiles_schema)
+    validator.validate(photo["profiles"])
+
+    incomplete = json.loads(json.dumps(photo["profiles"]))
+    incomplete["editing"].pop("motion")
+    with pytest.raises(ValidationError):
+        validator.validate(incomplete)
+
+def test_video_profile_does_not_require_photo_only_editing_fields() -> None:
+    profiles_schema = json.loads((ROOT / "schemas/profiles/composition_profiles.schema.json").read_text())
+    editing = FIXTURE["profiles"]["editing"]
+    assert set(editing) == {"transition", "transition_seconds", "video_fit", "background_color"}
+    Draft202012Validator(profiles_schema).validate(FIXTURE["profiles"])
+
+def test_canonical_artifact_has_one_trim_source_and_adapts_for_zod() -> None:
+    cut_schema = json.loads((ROOT / "schemas/artifacts/edit_decisions.schema.json").read_text())[
+        "properties"
+    ]["cuts"]["items"]["properties"]
+    assert "in_seconds" in cut_schema and "out_seconds" in cut_schema
+    assert "trim_in_seconds" not in cut_schema and "trim_out_seconds" not in cut_schema
+    adapted = __import__(
+        "tools.video.video_compose", fromlist=["VideoCompose"]
+    ).VideoCompose._adapt_video_core_props(FIXTURE)
+    cut = adapted["cuts"][0]
+    assert cut["trim_in_seconds"] == 0
+    assert cut["trim_out_seconds"] == 3
+    assert cut["playback_rate"] == 1
+    assert "in_seconds" not in cut and "out_seconds" not in cut
+    assert "speed" not in cut
 
 def test_video_core_is_registered_and_domain_neutral() -> None:
     root = (ROOT / "remotion-composer/src/Root.tsx").read_text()

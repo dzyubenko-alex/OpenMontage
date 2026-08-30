@@ -2,8 +2,7 @@
   "version": "1.0", "renderer_family": "video-montage", "render_runtime": "remotion",
   "cuts": [{
     "id": "clip-1", "source": "clip-asset", "in_seconds": 0, "out_seconds": 3,
-    "trim_in_seconds": 0, "trim_out_seconds": 3, "playback_rate": 1,
-    "clip_duration_seconds": 3, "source_audio": "original",
+    "playback_rate": 1, "clip_duration_seconds": 3, "source_audio": "original",
     "transform": {"position": {"x": 50, "y": 50}}, "transition_in": "fade", "transition_out": "fade"
   }],
   "profiles": {
@@ -14,9 +13,7 @@
     "branding": {"enabled": false, "position": "top-right", "opacity": 1, "max_width": 240, "safe_margin": 48,
       "primary_color": "#FFFFFF", "text_color": "#FFFFFF", "caption_background_color": "#000000",
       "font_family": "Inter", "title_font_size": 72, "subtitle_font_size": 34},
-    "export": {"media_profile": "generic_hd", "preview": {"enabled": false, "root": "", "mode": "VIDEO",
-      "filename_template": "{project}-{mode}-{timestamp}.{ext}", "timestamp_format": "%Y%m%d-%H%M%S",
-      "on_conflict": "increment", "failure_policy": "warn"}},
+    "export": {"media_profile": "generic_hd"},
     "source_audio": {"default_mode": "muted", "volume": 1, "ducking": {"enabled": true, "volume_multiplier": 0.5}}
   },
   "audio": {}, "captions": []

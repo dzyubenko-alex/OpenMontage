@@ -47,21 +47,38 @@
       "additionalProperties": false
     },
     "editing": {
-      "type": "object",
-      "required": ["transition", "transition_seconds", "background_color"],
-      "properties": {
-        "motion": { "type": "string", "enum": ["static", "zoom", "pan", "alternate"] },
-        "transition": { "type": "string", "enum": ["cut", "fade"] },
-        "transition_seconds": { "type": "number", "minimum": 0 },
-        "image_fit": { "type": "string", "enum": ["cover", "contain"] },
-        "video_fit": { "type": "string", "enum": ["cover", "contain"] },
-        "background_color": { "type": "string" },
-        "scale_from": { "type": "number", "minimum": 0.1 },
-        "scale_to": { "type": "number", "minimum": 0.1 },
-        "pan_x": { "type": "number" },
-        "pan_y": { "type": "number" }
-      },
-      "additionalProperties": false
+      "description": "Renderer-specific editing profile. PHOTO and VIDEO contracts remain independently strict.",
+      "oneOf": [
+        {
+          "title": "PHOTO editing profile",
+          "type": "object",
+          "required": ["motion", "transition", "transition_seconds", "image_fit", "background_color", "scale_from", "scale_to", "pan_x", "pan_y"],
+          "properties": {
+            "motion": { "type": "string", "enum": ["static", "zoom", "pan", "alternate"] },
+            "transition": { "type": "string", "enum": ["cut", "fade"] },
+            "transition_seconds": { "type": "number", "minimum": 0 },
+            "image_fit": { "type": "string", "enum": ["cover", "contain"] },
+            "background_color": { "type": "string" },
+            "scale_from": { "type": "number", "minimum": 0.1 },
+            "scale_to": { "type": "number", "minimum": 0.1 },
+            "pan_x": { "type": "number" },
+            "pan_y": { "type": "number" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "title": "VIDEO editing profile",
+          "type": "object",
+          "required": ["transition", "transition_seconds", "video_fit", "background_color"],
+          "properties": {
+            "transition": { "type": "string", "enum": ["cut", "fade"] },
+            "transition_seconds": { "type": "number", "minimum": 0 },
+            "video_fit": { "type": "string", "enum": ["cover", "contain"] },
+            "background_color": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "branding": {
       "type": "object",
