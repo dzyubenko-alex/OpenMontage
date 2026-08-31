@@ -2,15 +2,10 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
-from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError
 from schemas.artifacts import validate_artifact
-
-ROOT = Path(__file__).resolve().parents[2]
 
 
 class ProductionAssemblyError(ValueError):
@@ -70,24 +65,25 @@ def _validate_scene_timing(
 
 
 def _validate_profiles_for_mode(profiles: dict[str, Any], mode: str) -> None:
-    """Reject a valid profile bundle whose editing shape targets another Core."""
+    """Validate the complete bundle through the selected Core's artifact contract."""
 
-    schema = json.loads(
-        (ROOT / "schemas/profiles/composition_profiles.schema.json").read_text(
-            encoding="utf-8"
-        )
-    )
-    expected_title = f"{mode} editing profile"
-    editing_schema = next(
-        candidate
-        for candidate in schema["properties"]["editing"]["oneOf"]
-        if candidate.get("title") == expected_title
-    )
+    renderer_family = {
+        "PHOTO": "photo-montage",
+        "VIDEO": "video-montage",
+        "HYBRID": "hybrid-montage",
+    }[mode]
+    contract_probe = {
+        "version": "1.0",
+        "cuts": [],
+        "renderer_family": renderer_family,
+        "render_runtime": "remotion",
+        "profiles": profiles,
+    }
     try:
-        Draft202012Validator(editing_schema).validate(profiles["editing"])
+        validate_artifact("edit_decisions", contract_probe)
     except ValidationError as exc:
         raise ProductionAssemblyError(
-            f"{mode} mode requires a {expected_title}"
+            f"{mode} mode requires a complete compatible profile bundle: {exc.message}"
         ) from exc
 
 

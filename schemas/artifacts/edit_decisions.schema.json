@@ -268,9 +268,10 @@
         "properties": {
           "profiles": {
             "required": ["editing"],
+            "not": {"required": ["source_audio"]},
             "properties": {
               "editing": {
-                "required": ["motion", "transition", "transition_seconds", "image_fit", "background_color", "scale_from", "scale_to", "pan_x", "pan_y"]
+                "$ref": "../profiles/composition_profiles.schema.json#/properties/editing/oneOf/0"
               }
             }
           }
@@ -289,7 +290,7 @@
             "required": ["editing", "source_audio"],
             "properties": {
               "editing": {
-                "required": ["transition", "transition_seconds", "video_fit", "background_color"]
+                "$ref": "../profiles/composition_profiles.schema.json#/properties/editing/oneOf/1"
               },
               "source_audio": {
                 "required": ["default_mode", "volume", "ducking"]
@@ -311,7 +312,7 @@
             "required": ["editing", "source_audio"],
             "properties": {
               "editing": {
-                "required": ["motion", "transition", "transition_seconds", "image_fit", "video_fit", "background_color", "scale_from", "scale_to", "pan_x", "pan_y"]
+                "$ref": "../profiles/composition_profiles.schema.json#/properties/editing/oneOf/2"
               },
               "source_audio": {
                 "required": ["default_mode", "volume", "ducking"]

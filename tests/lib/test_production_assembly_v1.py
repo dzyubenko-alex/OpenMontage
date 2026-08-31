@@ -162,6 +162,46 @@ def test_video_declared_duration_caps_renderer_and_narration_together() -> None:
     assert narration["end_seconds"] - narration["start_seconds"] == 2
 
 
+def test_photo_timeline_uses_cumulative_non_overlapping_bounds() -> None:
+    source = _manifest("PHOTO")
+    source["assets"].extend([
+        {"id": "photo-2", "path": "kitchen.jpg",
+         "metadata": {"media_type": "photo"}},
+        {"id": "photo-3", "path": "garden.jpg",
+         "metadata": {"media_type": "photo"}},
+    ])
+    source["narration_segments"].extend([
+        {"id": "np-2", "text": "Kitchen", "semantic_purpose": "show kitchen"},
+        {"id": "np-3", "text": "Garden", "semantic_purpose": "show garden"},
+    ])
+    source["scenes"].extend([
+        {"id": "sp-2", "order": 1, "asset_id": "photo-2",
+         "narration_segment_id": "np-2",
+         "match": {"method": "manual", "reason": "Shows narrated kitchen"},
+         "timing": {"duration_seconds": 2.5}},
+        {"id": "sp-3", "order": 2, "asset_id": "photo-3",
+         "narration_segment_id": "np-3",
+         "match": {"method": "manual", "reason": "Shows narrated garden"},
+         "timing": {"duration_seconds": 5}},
+    ])
+
+    decisions = compile_edit_decisions(normalize_production_plan(source))
+    bounds = [
+        (cut["in_seconds"], cut["out_seconds"]) for cut in decisions["cuts"]
+    ]
+    narration = decisions["metadata"]["production_assembly"]["narration_bindings"]
+
+    assert bounds == [(0, 4), (4, 6.5), (6.5, 11.5)]
+    assert all(
+        current[1] == following[0]
+        for current, following in zip(bounds, bounds[1:])
+    )
+    assert [
+        (item["start_seconds"], item["end_seconds"]) for item in narration
+    ] == bounds
+    assert max(cut["out_seconds"] for cut in decisions["cuts"]) == 11.5
+
+
 def test_video_declared_duration_cannot_exceed_trimmed_playback() -> None:
     source = _manifest("VIDEO")
     source["scenes"][0]["timing"]["duration_seconds"] = 3.01
@@ -210,6 +250,37 @@ def test_resolved_mode_rejects_incompatible_editing_profile(kind, profile_kind) 
         normalize_production_plan(source)
 
 
+@pytest.mark.parametrize("kind", ["VIDEO", "HYBRID"])
+def test_video_modes_require_source_audio_profile(kind: str) -> None:
+    source = _manifest(kind)
+    source["profiles"].pop("source_audio")
+    with pytest.raises(
+        ProductionAssemblyError, match="complete compatible profile bundle"
+    ):
+        normalize_production_plan(source)
+
+
+@pytest.mark.parametrize(("kind", "path"), [
+    ("VIDEO", ("editing", "video_fit")),
+    ("HYBRID", ("editing", "image_fit")),
+    ("HYBRID", ("source_audio", "ducking")),
+])
+def test_mode_profiles_reject_other_missing_required_fields(kind, path) -> None:
+    source = _manifest(kind)
+    source["profiles"][path[0]].pop(path[1])
+    with pytest.raises(ProductionAssemblyError):
+        normalize_production_plan(source)
+
+
+def test_photo_profile_rejects_video_source_audio_shape() -> None:
+    source = _manifest("PHOTO")
+    source["profiles"]["source_audio"] = _profiles("VIDEO")["source_audio"]
+    with pytest.raises(
+        ProductionAssemblyError, match="complete compatible profile bundle"
+    ):
+        normalize_production_plan(source)
+
+
 def test_variants_and_avito_contacts_omission() -> None:
     source = _manifest()
     landscape = normalize_production_plan(source, variant_id="landscape-16x9")
@@ -241,6 +312,18 @@ def test_unknown_scene_override_id_is_rejected() -> None:
     })
     with pytest.raises(ProductionAssemblyError, match="Unknown scene override"):
         normalize_production_plan(source, variant_id="stale-scene")
+
+
+def test_scene_order_overrides_are_applied_before_deterministic_sorting() -> None:
+    source = _manifest("HYBRID")
+    source["variants"].append({
+        "id": "reverse-order",
+        "scene_overrides": {"sp": {"order": 2}, "sv": {"order": 0}},
+    })
+    plan = normalize_production_plan(source, variant_id="reverse-order")
+    assert [(scene["id"], scene["order"]) for scene in plan["scenes"]] == [
+        ("sv", 0), ("sp", 2)
+    ]
 
 
 def test_tampered_normalized_plan_digest_is_rejected_before_compilation() -> None:

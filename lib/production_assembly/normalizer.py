@@ -84,9 +84,12 @@ def normalize_production_plan(
         raise ProductionAssemblyError(
             "Unknown scene override id(s): " + ", ".join(sorted(unknown_override_ids))
         )
+    merged_scenes = [
+        _deep_merge(raw_scene, scene_overrides.get(raw_scene["id"], {}))
+        for raw_scene in source["scenes"]
+    ]
     normalized_scenes: list[dict[str, Any]] = []
-    for raw_scene in sorted(source["scenes"], key=lambda item: (item["order"], item["id"])):
-        scene = _deep_merge(raw_scene, scene_overrides.get(raw_scene["id"], {}))
+    for scene in sorted(merged_scenes, key=lambda item: (item["order"], item["id"])):
         asset = assets[scene["asset_id"]]
         narration_id = scene.get("narration_segment_id")
         asset_binding = {"asset_id": scene["asset_id"], "path": asset["path"]}

@@ -25,12 +25,18 @@ def compile_edit_decisions(plan: dict[str, Any]) -> dict[str, Any]:
     for scene in source["scenes"]:
         timing = scene["timing"]
         duration = float(timing["duration_seconds"])
+        if scene["media_type"] == "photo":
+            in_seconds = cursor
+            out_seconds = cursor + duration
+        else:
+            in_seconds = float(timing["in_seconds"])
+            out_seconds = float(timing["out_seconds"])
         cut: dict[str, Any] = {
             "id": scene["id"],
             "media_type": scene["media_type"],
             "source": scene["asset_binding"]["asset_id"],
-            "in_seconds": float(timing.get("in_seconds", 0)),
-            "out_seconds": float(timing.get("out_seconds", duration)),
+            "in_seconds": in_seconds,
+            "out_seconds": out_seconds,
             "reason": scene["match"]["reason"],
         }
         if scene["media_type"] == "video":
