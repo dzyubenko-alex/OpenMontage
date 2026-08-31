@@ -149,6 +149,66 @@ def test_determinism_profiles_and_canonical_trim() -> None:
     assert "trim_in_seconds" not in json.dumps(edit_a) and "trim_out_seconds" not in json.dumps(edit_a)
 
 
+def test_video_declared_duration_caps_renderer_and_narration_together() -> None:
+    source = _manifest("VIDEO")
+    source["scenes"][0]["timing"]["duration_seconds"] = 2
+    plan = normalize_production_plan(source)
+    decisions = compile_edit_decisions(plan)
+    cut = decisions["cuts"][0]
+    narration = decisions["metadata"]["production_assembly"]["narration_bindings"][0]
+    assert (cut["out_seconds"] - cut["in_seconds"]) / cut["playback_rate"] == 3
+    assert cut["clip_duration_seconds"] == 2
+    assert narration["end_seconds"] - narration["start_seconds"] == 2
+
+
+def test_video_declared_duration_cannot_exceed_trimmed_playback() -> None:
+    source = _manifest("VIDEO")
+    source["scenes"][0]["timing"]["duration_seconds"] = 3.01
+    with pytest.raises(ProductionAssemblyError, match="duration cap exceeds"):
+        normalize_production_plan(source)
+
+
+@pytest.mark.parametrize(("override", "message"), [
+    ({"duration_seconds": 0}, "duration must be positive"),
+    ({"in_seconds": 7}, "out_seconds must exceed"),
+    ({"playback_rate": 0}, "playback rate must be positive"),
+    ({"duration_seconds": -1}, "duration must be positive"),
+])
+def test_variant_scene_overrides_revalidate_video_timing(override, message) -> None:
+    source = _manifest("VIDEO")
+    source["variants"].append({
+        "id": "invalid-timing",
+        "scene_overrides": {"sv": {"timing": override}},
+    })
+    with pytest.raises(ProductionAssemblyError, match=message):
+        normalize_production_plan(source, variant_id="invalid-timing")
+
+
+def test_variant_scene_override_revalidates_photo_duration() -> None:
+    source = _manifest("PHOTO")
+    source["variants"].append({
+        "id": "invalid-photo-duration",
+        "scene_overrides": {"sp": {"timing": {"duration_seconds": 0}}},
+    })
+    with pytest.raises(ProductionAssemblyError, match="duration must be positive"):
+        normalize_production_plan(source, variant_id="invalid-photo-duration")
+
+
+@pytest.mark.parametrize(("kind", "profile_kind"), [
+    ("PHOTO", "VIDEO"),
+    ("PHOTO", "HYBRID"),
+    ("VIDEO", "PHOTO"),
+    ("VIDEO", "HYBRID"),
+    ("HYBRID", "PHOTO"),
+    ("HYBRID", "VIDEO"),
+])
+def test_resolved_mode_rejects_incompatible_editing_profile(kind, profile_kind) -> None:
+    source = _manifest(kind)
+    source["profiles"] = _profiles(profile_kind)
+    with pytest.raises(ProductionAssemblyError, match=f"{kind} mode requires"):
+        normalize_production_plan(source)
+
+
 def test_variants_and_avito_contacts_omission() -> None:
     source = _manifest()
     landscape = normalize_production_plan(source, variant_id="landscape-16x9")

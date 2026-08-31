@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator
+from jsonschema.exceptions import ValidationError
 from referencing import Registry, Resource
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -15,6 +16,64 @@ SCHEMA_DIR = ROOT / "schemas" / "artifacts"
 
 class ProductionAssemblyError(ValueError):
     """Raised when a production manifest or normalized plan is unsafe to compile."""
+
+
+def _validate_scene_timing(scene: dict[str, Any], media_type: str) -> None:
+    """Validate effective scene timing after every source/variant merge."""
+
+    timing = scene["timing"]
+    duration = float(timing["duration_seconds"])
+    if duration <= 0:
+        raise ProductionAssemblyError(f"Scene {scene['id']} duration must be positive")
+    rate = float(timing.get("playback_rate", 1))
+    if rate <= 0:
+        raise ProductionAssemblyError(f"Scene {scene['id']} playback rate must be positive")
+    if media_type == "photo":
+        forbidden = {"in_seconds", "out_seconds", "playback_rate"}.intersection(timing)
+        if "source_audio" in scene:
+            forbidden.add("source_audio")
+        if forbidden:
+            raise ProductionAssemblyError(
+                f"Photo scene {scene['id']} has video-only fields: {sorted(forbidden)}"
+            )
+        return
+
+    if "in_seconds" not in timing or "out_seconds" not in timing:
+        raise ProductionAssemblyError(
+            f"Video scene {scene['id']} requires in_seconds and out_seconds"
+        )
+    source_duration = float(timing["out_seconds"]) - float(timing["in_seconds"])
+    if source_duration <= 0:
+        raise ProductionAssemblyError(
+            f"Video scene {scene['id']} out_seconds must exceed in_seconds"
+        )
+    available_duration = source_duration / rate
+    if duration > available_duration + 1e-9:
+        raise ProductionAssemblyError(
+            f"Video scene {scene['id']} duration cap exceeds trimmed playback duration"
+        )
+
+
+def _validate_profiles_for_mode(profiles: dict[str, Any], mode: str) -> None:
+    """Reject a valid profile bundle whose editing shape targets another Core."""
+
+    schema = json.loads(
+        (ROOT / "schemas/profiles/composition_profiles.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    expected_title = f"{mode} editing profile"
+    editing_schema = next(
+        candidate
+        for candidate in schema["properties"]["editing"]["oneOf"]
+        if candidate.get("title") == expected_title
+    )
+    try:
+        Draft202012Validator(editing_schema).validate(profiles["editing"])
+    except ValidationError as exc:
+        raise ProductionAssemblyError(
+            f"{mode} mode requires a {expected_title}"
+        ) from exc
 
 
 def _validate_schema(name: str, value: dict[str, Any]) -> None:
@@ -81,28 +140,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 raise ProductionAssemblyError(
                     f"Scene {scene['id']} requires explicit match.method and match.reason"
                 )
-        timing = scene["timing"]
-        if timing["duration_seconds"] <= 0:
-            raise ProductionAssemblyError(f"Scene {scene['id']} duration must be positive")
-        if timing.get("playback_rate", 1) <= 0:
-            raise ProductionAssemblyError(f"Scene {scene['id']} playback rate must be positive")
-        if media_type == "photo":
-            forbidden = {"in_seconds", "out_seconds", "playback_rate"}.intersection(timing)
-            if "source_audio" in scene:
-                forbidden.add("source_audio")
-            if forbidden:
-                raise ProductionAssemblyError(
-                    f"Photo scene {scene['id']} has video-only fields: {sorted(forbidden)}"
-                )
-        else:
-            if "in_seconds" not in timing or "out_seconds" not in timing:
-                raise ProductionAssemblyError(
-                    f"Video scene {scene['id']} requires in_seconds and out_seconds"
-                )
-            if timing["out_seconds"] <= timing["in_seconds"]:
-                raise ProductionAssemblyError(
-                    f"Video scene {scene['id']} out_seconds must exceed in_seconds"
-                )
+        _validate_scene_timing(scene, media_type)
+        if media_type == "video":
             if (scene.get("visual") or {}).get("photo_motion") is not None:
                 raise ProductionAssemblyError(
                     f"Video scene {scene['id']} cannot use photo_motion"
@@ -135,3 +174,12 @@ def validate_normalized_plan(plan: dict[str, Any]) -> None:
     expected = {"PHOTO": "photo-montage", "VIDEO": "video-montage", "HYBRID": "hybrid-montage"}[mode]
     if plan["renderer_family"] != expected:
         raise ProductionAssemblyError("Resolved mode and renderer_family disagree")
+    _validate_profiles_for_mode(plan["profiles"], mode)
+    for scene in plan["scenes"]:
+        _validate_scene_timing(scene, scene["media_type"])
+        if scene["media_type"] == "video" and (
+            scene.get("visual") or {}
+        ).get("photo_motion") is not None:
+            raise ProductionAssemblyError(
+                f"Video scene {scene['id']} cannot use photo_motion"
+            )

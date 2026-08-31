@@ -31,6 +31,7 @@ def compile_edit_decisions(plan: dict[str, Any]) -> dict[str, Any]:
         }
         if scene["media_type"] == "video":
             rate = float(timing.get("playback_rate", 1))
+            cut["clip_duration_seconds"] = duration
             if rate != 1:
                 cut["playback_rate"] = rate
             source_audio = scene.get("source_audio")
