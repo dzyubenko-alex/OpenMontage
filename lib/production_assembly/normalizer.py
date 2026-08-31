@@ -19,6 +19,14 @@ def canonical_digest(value: Any) -> str:
     return hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
 
 
+def normalized_plan_digest(plan: dict[str, Any]) -> str:
+    """Digest canonical plan content without recursively hashing its digest field."""
+
+    content = copy.deepcopy(plan)
+    content.get("diagnostics", {}).pop("normalized_plan_digest", None)
+    return canonical_digest(content)
+
+
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     result = copy.deepcopy(base)
     for key, value in override.items():
@@ -70,15 +78,24 @@ def normalize_production_plan(
         delivery.pop("cta", None)
 
     scene_overrides = variant.get("scene_overrides", {})
+    scene_ids = {scene["id"] for scene in source["scenes"]}
+    unknown_override_ids = set(scene_overrides) - scene_ids
+    if unknown_override_ids:
+        raise ProductionAssemblyError(
+            "Unknown scene override id(s): " + ", ".join(sorted(unknown_override_ids))
+        )
     normalized_scenes: list[dict[str, Any]] = []
     for raw_scene in sorted(source["scenes"], key=lambda item: (item["order"], item["id"])):
         scene = _deep_merge(raw_scene, scene_overrides.get(raw_scene["id"], {}))
         asset = assets[scene["asset_id"]]
         narration_id = scene.get("narration_segment_id")
+        asset_binding = {"asset_id": scene["asset_id"], "path": asset["path"]}
+        if "duration_seconds" in asset["metadata"]:
+            asset_binding["source_duration_seconds"] = asset["metadata"]["duration_seconds"]
         normalized: dict[str, Any] = {
             "id": scene["id"],
             "order": scene["order"],
-            "asset_binding": {"asset_id": scene["asset_id"], "path": asset["path"]},
+            "asset_binding": asset_binding,
             "media_type": asset["metadata"]["media_type"],
             "timing": copy.deepcopy(scene["timing"]),
             "match": copy.deepcopy(scene["match"]),
@@ -119,5 +136,5 @@ def normalize_production_plan(
         },
     }
     validate_normalized_plan(plan)
-    plan["diagnostics"]["normalized_plan_digest"] = canonical_digest(plan)
+    plan["diagnostics"]["normalized_plan_digest"] = normalized_plan_digest(plan)
     return plan

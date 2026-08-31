@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from schemas.artifacts import validate_artifact
 from lib.production_assembly import (
     ProductionAssemblyError,
     canonical_digest,
@@ -223,6 +224,52 @@ def test_variants_and_avito_contacts_omission() -> None:
     edits = [compile_edit_decisions(p) for p in (landscape, vertical, avito)]
     assert [e["metadata"]["production_assembly"]["variant_id"] for e in edits] == [
         "landscape-16x9", "vertical-9x16", "avito-no-contacts"]
+
+
+def test_general_artifact_validator_resolves_production_profile_refs() -> None:
+    source = _manifest()
+    plan = normalize_production_plan(source)
+    validate_artifact("production_project_manifest", source)
+    validate_artifact("normalized_production_plan", plan)
+
+
+def test_unknown_scene_override_id_is_rejected() -> None:
+    source = _manifest("PHOTO")
+    source["variants"].append({
+        "id": "stale-scene",
+        "scene_overrides": {"removed-scene": {"timing": {"duration_seconds": 2}}},
+    })
+    with pytest.raises(ProductionAssemblyError, match="Unknown scene override"):
+        normalize_production_plan(source, variant_id="stale-scene")
+
+
+def test_tampered_normalized_plan_digest_is_rejected_before_compilation() -> None:
+    plan = normalize_production_plan(_manifest("PHOTO"))
+    plan["project"]["title"] = "Tampered after normalization"
+    with pytest.raises(ProductionAssemblyError, match="digest mismatch"):
+        compile_edit_decisions(plan)
+
+
+@pytest.mark.parametrize(("variant_override", "message"), [
+    (None, "trim exceeds declared source duration"),
+    ({"out_seconds": 10.1}, "trim exceeds declared source duration"),
+    ({"in_seconds": -0.1}, "in_seconds must be within source duration"),
+])
+def test_video_trim_cannot_exceed_declared_source_duration(
+    variant_override, message
+) -> None:
+    source = _manifest("VIDEO")
+    if variant_override is None:
+        source["scenes"][0]["timing"]["out_seconds"] = 10.1
+        with pytest.raises(ProductionAssemblyError, match=message):
+            validate_manifest(source)
+        return
+    source["variants"].append({
+        "id": "source-overflow",
+        "scene_overrides": {"sv": {"timing": variant_override}},
+    })
+    with pytest.raises(ProductionAssemblyError, match=message):
+        normalize_production_plan(source, variant_id="source-overflow")
 
 
 def test_schema_and_contract_gaps() -> None:

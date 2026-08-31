@@ -8,17 +8,20 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError
-from referencing import Registry, Resource
+from schemas.artifacts import validate_artifact
 
 ROOT = Path(__file__).resolve().parents[2]
-SCHEMA_DIR = ROOT / "schemas" / "artifacts"
 
 
 class ProductionAssemblyError(ValueError):
     """Raised when a production manifest or normalized plan is unsafe to compile."""
 
 
-def _validate_scene_timing(scene: dict[str, Any], media_type: str) -> None:
+def _validate_scene_timing(
+    scene: dict[str, Any],
+    media_type: str,
+    source_duration_seconds: float | None = None,
+) -> None:
     """Validate effective scene timing after every source/variant merge."""
 
     timing = scene["timing"]
@@ -42,11 +45,23 @@ def _validate_scene_timing(scene: dict[str, Any], media_type: str) -> None:
         raise ProductionAssemblyError(
             f"Video scene {scene['id']} requires in_seconds and out_seconds"
         )
-    source_duration = float(timing["out_seconds"]) - float(timing["in_seconds"])
+    source_in = float(timing["in_seconds"])
+    source_out = float(timing["out_seconds"])
+    if source_in < 0:
+        raise ProductionAssemblyError(
+            f"Video scene {scene['id']} in_seconds must be within source duration"
+        )
+    source_duration = source_out - source_in
     if source_duration <= 0:
         raise ProductionAssemblyError(
             f"Video scene {scene['id']} out_seconds must exceed in_seconds"
         )
+    if source_duration_seconds is not None:
+        declared_source_duration = float(source_duration_seconds)
+        if source_in >= declared_source_duration or source_out > declared_source_duration:
+            raise ProductionAssemblyError(
+                f"Video scene {scene['id']} trim exceeds declared source duration"
+            )
     available_duration = source_duration / rate
     if duration > available_duration + 1e-9:
         raise ProductionAssemblyError(
@@ -77,24 +92,13 @@ def _validate_profiles_for_mode(profiles: dict[str, Any], mode: str) -> None:
 
 
 def _validate_schema(name: str, value: dict[str, Any]) -> None:
-    schema = json.loads((SCHEMA_DIR / f"{name}.schema.json").read_text(encoding="utf-8"))
-    profile_schema = json.loads(
-        (ROOT / "schemas/profiles/composition_profiles.schema.json").read_text(encoding="utf-8")
-    )
-    preview_schema = json.loads(
-        (ROOT / "schemas/profiles/preview_export_profile.schema.json").read_text(encoding="utf-8")
-    )
-    registry = (
-        Registry().with_resource(profile_schema["$id"], Resource.from_contents(profile_schema))
-        .with_resource("openmontage/profiles/composition_profiles.schema.json", Resource.from_contents(profile_schema))
-        .with_resource(preview_schema["$id"], Resource.from_contents(preview_schema))
-        .with_resource("openmontage/profiles/preview_export_profile.schema.json", Resource.from_contents(preview_schema))
-    )
-    errors = sorted(Draft202012Validator(schema, registry=registry).iter_errors(value), key=lambda e: list(e.path))
-    if errors:
-        first = errors[0]
-        location = ".".join(map(str, first.absolute_path)) or "<root>"
-        raise ProductionAssemblyError(f"{name} schema error at {location}: {first.message}")
+    try:
+        validate_artifact(name, value)
+    except ValidationError as exc:
+        location = ".".join(map(str, exc.absolute_path)) or "<root>"
+        raise ProductionAssemblyError(
+            f"{name} schema error at {location}: {exc.message}"
+        ) from exc
 
 
 def _index_unique(items: list[dict[str, Any]], label: str) -> dict[str, dict[str, Any]]:
@@ -140,7 +144,9 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 raise ProductionAssemblyError(
                     f"Scene {scene['id']} requires explicit match.method and match.reason"
                 )
-        _validate_scene_timing(scene, media_type)
+        _validate_scene_timing(
+            scene, media_type, (assets[asset_id].get("metadata") or {}).get("duration_seconds")
+        )
         if media_type == "video":
             if (scene.get("visual") or {}).get("photo_motion") is not None:
                 raise ProductionAssemblyError(
@@ -176,7 +182,11 @@ def validate_normalized_plan(plan: dict[str, Any]) -> None:
         raise ProductionAssemblyError("Resolved mode and renderer_family disagree")
     _validate_profiles_for_mode(plan["profiles"], mode)
     for scene in plan["scenes"]:
-        _validate_scene_timing(scene, scene["media_type"])
+        _validate_scene_timing(
+            scene,
+            scene["media_type"],
+            scene["asset_binding"].get("source_duration_seconds"),
+        )
         if scene["media_type"] == "video" and (
             scene.get("visual") or {}
         ).get("photo_motion") is not None:

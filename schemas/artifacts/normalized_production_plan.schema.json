@@ -25,7 +25,11 @@
           "asset_binding": {
             "type": "object",
             "required": ["asset_id", "path"],
-            "properties": {"asset_id": {"type": "string"}, "path": {"type": "string"}},
+            "properties": {
+              "asset_id": {"type": "string"},
+              "path": {"type": "string"},
+              "source_duration_seconds": {"type": "number", "exclusiveMinimum": 0}
+            },
             "additionalProperties": false
           },
           "narration_binding": {

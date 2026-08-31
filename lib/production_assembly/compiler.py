@@ -5,14 +5,18 @@ from __future__ import annotations
 import copy
 from typing import Any
 
-from .normalizer import canonical_digest
-from .validation import validate_normalized_plan
+from .normalizer import canonical_digest, normalized_plan_digest
+from .validation import ProductionAssemblyError, validate_normalized_plan
 
 
 def compile_edit_decisions(plan: dict[str, Any]) -> dict[str, Any]:
     """Compile canonical cuts without renderer-only trim fields."""
 
     source = copy.deepcopy(plan)
+    stored_digest = source.get("diagnostics", {}).get("normalized_plan_digest")
+    actual_digest = normalized_plan_digest(source)
+    if stored_digest != actual_digest:
+        raise ProductionAssemblyError("Normalized production plan digest mismatch")
     validate_normalized_plan(source)
     cuts: list[dict[str, Any]] = []
     narration_timeline: list[dict[str, Any]] = []
