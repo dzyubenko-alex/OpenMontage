@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openmontage/artifacts/normalized_production_plan",
+  "title": "Normalized Production Plan",
+  "type": "object",
+  "required": ["version", "project", "variant_id", "requested_mode", "resolved_mode", "renderer_family", "render_runtime", "target", "scenes", "profiles", "variants", "delivery", "audio", "diagnostics"],
+  "properties": {
+    "version": {"const": "1.0"},
+    "project": {"type": "object"},
+    "variant_id": {"type": "string"},
+    "requested_mode": {"enum": ["AUTO", "PHOTO", "VIDEO", "HYBRID"]},
+    "resolved_mode": {"enum": ["PHOTO", "VIDEO", "HYBRID"]},
+    "renderer_family": {"enum": ["photo-montage", "video-montage", "hybrid-montage"]},
+    "render_runtime": {"const": "remotion"},
+    "target": {"type": "object"},
+    "scenes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "order", "asset_binding", "media_type", "timing", "match"],
+        "properties": {
+          "id": {"type": "string"},
+          "order": {"type": "integer", "minimum": 0},
+          "asset_binding": {
+            "type": "object",
+            "required": ["asset_id", "path"],
+            "properties": {"asset_id": {"type": "string"}, "path": {"type": "string"}},
+            "additionalProperties": false
+          },
+          "narration_binding": {
+            "type": "object",
+            "required": ["segment_id", "text", "semantic_purpose"],
+            "properties": {"segment_id": {"type": "string"}, "text": {"type": "string"}, "semantic_purpose": {"type": "string"}},
+            "additionalProperties": false
+          },
+          "media_type": {"enum": ["photo", "video"]},
+          "timing": {"type": "object"},
+          "match": {
+            "type": "object",
+            "required": ["method", "reason"],
+            "properties": {"method": {"enum": ["manual", "declared"]}, "reason": {"type": "string", "minLength": 1}},
+            "additionalProperties": false
+          },
+          "visual": {"type": "object"},
+          "transition": {"type": "object"},
+          "source_audio": {"type": "object"},
+          "captions": {"type": "object"},
+          "branding": {"type": "object"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "profiles": {"$ref": "../profiles/composition_profiles.schema.json"},
+    "variants": {"type": "array"},
+    "delivery": {"type": "object"},
+    "audio": {"type": "object"},
+    "diagnostics": {
+      "type": "object",
+      "required": ["warnings", "media_type_source", "semantic_matching", "source_manifest_digest"],
+      "properties": {
+        "warnings": {"type": "array", "items": {"type": "string"}},
+        "media_type_source": {"const": "asset.metadata.media_type"},
+        "semantic_matching": {"const": "explicit-bindings-only"},
+        "source_manifest_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "normalized_plan_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
