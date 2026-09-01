@@ -1,11 +1,14 @@
 import {z} from "zod";
+import {transitionDirectionSchema, transitionInputSchema} from "../transitionSchema";
 const volume = z.number().min(0).max(1);
-const transition = z.enum(["cut", "fade"]);
+const transition = transitionInputSchema;
 const position = z.union([z.string(), z.object({x: z.number(), y: z.number()})]);
 const crop = z.object({x: z.number(), y: z.number(), width: z.number().positive(), height: z.number().positive()});
 const photoCut = z.object({
   media_type: z.literal("photo"), id: z.string(), source: z.string(), duration_seconds: z.number().positive(),
-  transition_in: transition.optional(), transition_out: transition.optional(),
+  transition_in: transition.optional(), transition_out: transition.optional(), transition_duration: z.number().min(0).optional(),
+    transition_in_duration: z.number().min(0).optional(), transition_out_duration: z.number().min(0).optional(),
+    transition_in_direction: transitionDirectionSchema.optional(), transition_out_direction: transitionDirectionSchema.optional(),
   transform: z.object({position: position.optional(), crop: crop.optional(), animation: z.string().optional(), scale: z.number().positive().optional()}).optional(),
 });
 const videoCut = z.object({
@@ -13,7 +16,9 @@ const videoCut = z.object({
   trim_in_seconds: z.number().min(0), trim_out_seconds: z.number().min(0),
   clip_duration_seconds: z.number().positive().optional(), playback_rate: z.number().positive().optional(),
   source_audio: z.enum(["muted", "original"]).optional(), source_audio_volume: volume.optional(),
-  transition_in: transition.optional(), transition_out: transition.optional(),
+  transition_in: transition.optional(), transition_out: transition.optional(), transition_duration: z.number().min(0).optional(),
+    transition_in_duration: z.number().min(0).optional(), transition_out_duration: z.number().min(0).optional(),
+    transition_in_direction: transitionDirectionSchema.optional(), transition_out_direction: transitionDirectionSchema.optional(),
   transform: z.object({position: position.optional(), crop: crop.optional()}).optional(),
 }).refine((cut) => cut.trim_out_seconds > cut.trim_in_seconds, {message: "trim_out_seconds must be greater than trim_in_seconds"});
 const voice = z.object({enabled: z.boolean(), volume, captions: z.object({enabled: z.boolean(), words_per_page: z.number().int().positive(), font_size: z.number().int().positive()})});
@@ -29,7 +34,7 @@ export const hybridCoreV1Schema = z.object({
   profiles: z.object({
     voice, music,
     editing: z.object({motion: z.enum(["static", "zoom", "pan", "alternate"]), transition,
-      transition_seconds: z.number().min(0), image_fit: z.enum(["cover", "contain"]), video_fit: z.enum(["cover", "contain"]),
+      transition_seconds: z.number().min(0), transition_mode: z.enum(["legacy", "contextual_v1"]).optional(), image_fit: z.enum(["cover", "contain"]), video_fit: z.enum(["cover", "contain"]),
       background_color: z.string(), scale_from: z.number().positive(), scale_to: z.number().positive(), pan_x: z.number(), pan_y: z.number()}),
     branding,
     export: z.object({media_profile: z.string().min(1), width: z.number().int().positive().optional(), height: z.number().int().positive().optional(),

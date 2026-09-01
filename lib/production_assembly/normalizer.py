@@ -109,7 +109,7 @@ def normalize_production_plan(
                 "text": narrations[narration_id]["text"],
                 "semantic_purpose": narrations[narration_id]["semantic_purpose"],
             }
-        for optional in ("visual", "transition", "source_audio", "captions", "branding"):
+        for optional in ("semantic_role", "environment", "section_id", "motion_hint", "visual", "transition", "source_audio", "captions", "branding"):
             if optional in scene:
                 normalized[optional] = copy.deepcopy(scene[optional])
         normalized_scenes.append(normalized)

@@ -1,12 +1,18 @@
 import type {WordCaption} from "../../components/CaptionOverlay";
 import type {BrandingProfile, ExportProfile, MusicProfile, VoiceProfile} from "../photo-core-v1/types";
 import type {SourceAudioProfile, TimedAudioSource} from "../video-core-v1/types";
-export type HybridTransition = "cut" | "fade";
+import type {TransitionDirection, TransitionInput} from "../contextualTransitions";
+export type HybridTransition = TransitionInput;
 export type HybridTransform = {position?: string | {x: number; y: number}; crop?: {x: number; y: number; width: number; height: number}};
-export type HybridPhotoCut = {media_type: "photo"; id: string; source: string; duration_seconds: number; transition_in?: HybridTransition; transition_out?: HybridTransition; transform?: HybridTransform & {animation?: string; scale?: number}};
-export type HybridVideoCut = {media_type: "video"; id: string; source: string; trim_in_seconds: number; trim_out_seconds: number; clip_duration_seconds?: number; playback_rate?: number; source_audio?: "muted" | "original"; source_audio_volume?: number; transition_in?: HybridTransition; transition_out?: HybridTransition; transform?: HybridTransform};
+export type HybridPhotoCut = {media_type: "photo"; id: string; source: string; duration_seconds: number; transition_in?: HybridTransition; transition_out?: HybridTransition; transition_duration?: number;
+  transition_in_duration?: number; transition_out_duration?: number;
+  transition_in_direction?: TransitionDirection; transition_out_direction?: TransitionDirection; transform?: HybridTransform & {animation?: string; scale?: number}};
+export type HybridVideoCut = {media_type: "video"; id: string; source: string; trim_in_seconds: number; trim_out_seconds: number; clip_duration_seconds?: number; playback_rate?: number; source_audio?: "muted" | "original"; source_audio_volume?: number; transition_in?: HybridTransition; transition_out?: HybridTransition; transition_duration?: number;
+  transition_in_duration?: number; transition_out_duration?: number;
+  transition_in_direction?: TransitionDirection; transition_out_direction?: TransitionDirection; transform?: HybridTransform};
 export type HybridCut = HybridPhotoCut | HybridVideoCut;
-export type HybridEditingProfile = {motion: "static" | "zoom" | "pan" | "alternate"; transition: HybridTransition; transition_seconds: number; image_fit: "cover" | "contain"; video_fit: "cover" | "contain"; background_color: string; scale_from: number; scale_to: number; pan_x: number; pan_y: number};
+export type HybridEditingProfile = {motion: "static" | "zoom" | "pan" | "alternate"; transition: HybridTransition; transition_seconds: number;
+  transition_mode?: "legacy" | "contextual_v1"; image_fit: "cover" | "contain"; video_fit: "cover" | "contain"; background_color: string; scale_from: number; scale_to: number; pan_x: number; pan_y: number};
 export type HybridExportProfile = Omit<ExportProfile, "preview"> & {
   preview?: Omit<NonNullable<ExportProfile["preview"]>, "mode"> & {mode: "HYBRID"};
 };

@@ -1,4 +1,5 @@
 import {z} from "zod";
+import {transitionDirectionSchema, transitionInputSchema} from "../transitionSchema";
 const volume = z.number().min(0).max(1);
 const audioMode = z.enum(["muted", "original"]);
 export const videoCoreV1Schema = z.object({
@@ -8,8 +9,11 @@ export const videoCoreV1Schema = z.object({
     clip_duration_seconds: z.number().positive().optional(),
     playback_rate: z.number().positive().optional(),
     source_audio: audioMode.optional(), source_audio_volume: volume.optional(),
-    transition_in: z.enum(["cut", "fade"]).optional(),
-    transition_out: z.enum(["cut", "fade"]).optional(),
+    transition_in: transitionInputSchema.optional(),
+    transition_out: transitionInputSchema.optional(),
+    transition_duration: z.number().min(0).optional(),
+    transition_in_duration: z.number().min(0).optional(), transition_out_duration: z.number().min(0).optional(),
+    transition_in_direction: transitionDirectionSchema.optional(), transition_out_direction: transitionDirectionSchema.optional(),
     transform: z.object({
       position: z.union([z.string(), z.object({x: z.number(), y: z.number()})]).optional(),
       crop: z.object({x: z.number(), y: z.number(), width: z.number().positive(), height: z.number().positive()}).optional(),
@@ -27,7 +31,7 @@ export const videoCoreV1Schema = z.object({
       loop: z.boolean(), ducking: z.object({enabled: z.boolean(), volume_multiplier: volume}),
     }),
     editing: z.object({
-      transition: z.enum(["cut", "fade"]), transition_seconds: z.number().min(0),
+      transition: transitionInputSchema, transition_seconds: z.number().min(0), transition_mode: z.enum(["legacy", "contextual_v1"]).optional(),
       video_fit: z.enum(["cover", "contain"]), background_color: z.string(),
     }),
     branding: z.object({

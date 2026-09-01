@@ -32,7 +32,10 @@
             },
             "additionalProperties": false
           },
-          "narration_binding": {
+          "semantic_role": {"type": "string"},
+          "environment": {"enum": ["exterior", "interior", "unknown"]},
+          "section_id": {"type": "string"},
+          "motion_hint": {"type": "object", "required": ["direction"], "properties": {"direction": {"enum": ["left", "right", "up", "down"]}}, "additionalProperties": false},          "narration_binding": {
             "type": "object",
             "required": ["segment_id", "text", "semantic_purpose"],
             "properties": {"segment_id": {"type": "string"}, "text": {"type": "string"}, "semantic_purpose": {"type": "string"}},
@@ -47,7 +50,7 @@
             "additionalProperties": false
           },
           "visual": {"type": "object"},
-          "transition": {"type": "object"},
+          "transition": {"$ref": "#/$defs/scene_transition"},
           "source_audio": {"type": "object"},
           "captions": {"type": "object"},
           "branding": {"type": "object"}
@@ -56,7 +59,7 @@
       }
     },
     "profiles": {"$ref": "../profiles/composition_profiles.schema.json"},
-    "variants": {"type": "array"},
+    "variants": {"type": "array", "items": {"type": "object", "properties": {"scene_overrides": {"type": "object", "additionalProperties": {"type": "object", "properties": {"motion_hint": {"type": "object", "required": ["direction"], "properties": {"direction": {"enum": ["left", "right", "up", "down"]}}, "additionalProperties": false}, "transition": {"$ref": "#/$defs/scene_transition"}}, "additionalProperties": true}}}, "additionalProperties": true}},
     "delivery": {"type": "object"},
     "audio": {"type": "object"},
     "diagnostics": {
@@ -68,6 +71,22 @@
         "semantic_matching": {"const": "explicit-bindings-only"},
         "source_manifest_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "normalized_plan_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "transition_input": {"enum": ["cut", "fade", "hard_cut", "crossfade", "subtle_zoom", "directional_push", "matched_motion", "section_transition"]},
+    "scene_transition": {
+      "type": "object",
+      "properties": {
+        "in": {"$ref": "#/$defs/transition_input"},
+        "out": {"$ref": "#/$defs/transition_input"},
+        "duration_seconds": {"type": "number", "minimum": 0},
+        "in_duration_seconds": {"type": "number", "minimum": 0},
+        "out_duration_seconds": {"type": "number", "minimum": 0},
+        "in_direction": {"enum": ["left", "right", "up", "down"]},
+        "out_direction": {"enum": ["left", "right", "up", "down"]}
       },
       "additionalProperties": false
     }

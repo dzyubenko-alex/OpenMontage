@@ -1,7 +1,8 @@
 import {AbsoluteFill, Audio, Img, Sequence, interpolate, useVideoConfig} from "remotion";
 import {CaptionOverlay} from "../../components/CaptionOverlay";
 import {resolveAsset} from "../../lib/resolveAsset";
-import {narrationIsActiveAtFrame} from "../video-core-v1/VideoFrame";
+import {narrationIsActiveAtFrame, SourceAudioTrack} from "../video-core-v1/VideoFrame";
+import {VisualBoundary} from "../visualBoundaryTimeline";
 import type {BrandingProfile} from "../photo-core-v1/types";
 import {HybridFrame} from "./HybridFrame";
 import {buildHybridTimeline, hybridTimelineDurationInFrames} from "./timeline";
@@ -26,14 +27,24 @@ const EndCard: React.FC<{profile: BrandingProfile}> = ({profile}) => {
 export const HybridCoreV1: React.FC<HybridCoreV1Props> = ({cuts, profiles, audio, captions}) => {
   const {fps, durationInFrames} = useVideoConfig();
   const timeline = buildHybridTimeline(cuts, fps, profiles.editing);
+  const contextualEnabled = profiles.editing.transition_mode === "contextual_v1";
   const narration = audio?.narration?.segments ?? (audio?.narration?.src ? [{src: audio.narration.src, start_seconds: 0}] : []);
   const voiceActive = profiles.voice.enabled && narration.length > 0;
   const visualEnd = hybridTimelineDurationInFrames(cuts, fps, profiles.editing);
   return <AbsoluteFill style={{backgroundColor: profiles.editing.background_color}}>
     {timeline.map((item, index) => <Sequence key={item.cut.id} from={item.startFrame}
       durationInFrames={item.durationInFrames} premountFor={fps}>
-      <HybridFrame item={item} editing={profiles.editing} profiles={profiles} narration={narration} index={index} />
+      {contextualEnabled ? <VisualBoundary item={item}>
+        <HybridFrame item={item} editing={profiles.editing} profiles={profiles} narration={narration} index={index} />
+      </VisualBoundary> :
+        <HybridFrame item={item} editing={profiles.editing} profiles={profiles} narration={narration} index={index} />}
     </Sequence>)}
+    {contextualEnabled && timeline.map((item) => item.cut.media_type === "video" ?
+      <Sequence key={`source-audio-${item.cut.id}`} from={item.canonicalStartFrame}
+        durationInFrames={item.semanticDurationInFrames} premountFor={fps}>
+        <SourceAudioTrack cut={item.cut} sourceAudio={profiles.source_audio} narrationSegments={narration}
+          timelineStartFrame={item.canonicalStartFrame} durationInFrames={item.semanticDurationInFrames} />
+      </Sequence> : null)}
     {voiceActive && narration.map((segment, index) => {
       const from = Math.round((segment.start_seconds ?? 0) * fps);
       const duration = segment.end_seconds === undefined ? undefined

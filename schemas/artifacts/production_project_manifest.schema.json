@@ -94,7 +94,7 @@
           "target_overrides": {"type": "object"},
           "profile_overrides": {"type": "object"},
           "delivery_overrides": {"type": "object"},
-          "scene_overrides": {"type": "object", "additionalProperties": {"type": "object"}},
+          "scene_overrides": {"type": "object", "additionalProperties": {"type": "object", "properties": {"motion_hint": {"$ref": "#/$defs/motion_hint"}, "transition": {"$ref": "#/$defs/scene_transition"}}, "additionalProperties": true}},
           "policy": {
             "type": "object",
             "properties": {
@@ -109,6 +109,26 @@
     }
   },
   "$defs": {
+    "transition_input": {"enum": ["cut", "fade", "hard_cut", "crossfade", "subtle_zoom", "directional_push", "matched_motion", "section_transition"]},
+    "scene_transition": {
+      "type": "object",
+      "properties": {
+        "in": {"$ref": "#/$defs/transition_input"},
+        "out": {"$ref": "#/$defs/transition_input"},
+        "duration_seconds": {"type": "number", "minimum": 0},
+        "in_duration_seconds": {"type": "number", "minimum": 0},
+        "out_duration_seconds": {"type": "number", "minimum": 0},
+        "in_direction": {"enum": ["left", "right", "up", "down"]},
+        "out_direction": {"enum": ["left", "right", "up", "down"]}
+      },
+      "additionalProperties": false
+    },
+    "motion_hint": {
+      "type": "object",
+      "required": ["direction"],
+      "properties": {"direction": {"enum": ["left", "right", "up", "down"]}},
+      "additionalProperties": false
+    },
     "source_scene": {
       "type": "object",
       "required": ["id", "order", "asset_id", "timing", "match"],
@@ -126,7 +146,10 @@
           },
           "additionalProperties": false
         },
-        "timing": {
+        "semantic_role": {"type": "string", "minLength": 1},
+        "environment": {"enum": ["exterior", "interior", "unknown"]},
+        "section_id": {"type": "string", "minLength": 1},
+        "motion_hint": {"$ref": "#/$defs/motion_hint"},        "timing": {
           "type": "object",
           "required": ["duration_seconds"],
           "properties": {
@@ -156,11 +179,7 @@
           },
           "additionalProperties": false
         },
-        "transition": {
-          "type": "object",
-          "properties": {"in": {"enum": ["cut", "fade"]}, "out": {"enum": ["cut", "fade"]}},
-          "additionalProperties": false
-        },
+        "transition": {"$ref": "#/$defs/scene_transition"},
         "source_audio": {
           "type": "object",
           "required": ["mode"],

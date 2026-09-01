@@ -1,6 +1,7 @@
-import {AbsoluteFill, OffthreadVideo, interpolate, useCurrentFrame, useVideoConfig} from "remotion";
+import {AbsoluteFill, Audio, OffthreadVideo, interpolate, useCurrentFrame, useVideoConfig} from "remotion";
 import type {CSSProperties} from "react";
 import {resolveAsset} from "../../lib/resolveAsset";
+import {boundaryTransitionStyle, canonicalDirection, canonicalTransition, transitionPhaseIsActive} from "../contextualTransitions";
 import type {SourceAudioProfile, TimedAudioSource, VideoCoreCut, VideoEditingProfile} from "./types";
 
 export const cropViewportStyle = (crop: NonNullable<NonNullable<VideoCoreCut["transform"]>["crop"]> | undefined): CSSProperties =>
@@ -24,20 +25,22 @@ export const sourceAudioVolumeAtFrame = (
 
 type Props = {
   cut: VideoCoreCut; editing: VideoEditingProfile; sourceAudio: SourceAudioProfile;
-  narrationSegments: TimedAudioSource[]; timelineStartFrame: number; durationInFrames: number;
+  narrationSegments: TimedAudioSource[]; timelineStartFrame: number; durationInFrames: number; visualOnly?: boolean;
 };
 export const VideoFrame: React.FC<Props> = ({
-  cut, editing, sourceAudio, narrationSegments, timelineStartFrame, durationInFrames,
+  cut, editing, sourceAudio, narrationSegments, timelineStartFrame, durationInFrames, visualOnly = false,
 }) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
-  const transitionFrames = Math.min(Math.round(editing.transition_seconds * fps), Math.floor(durationInFrames / 2));
-  const fadeInEnabled = (cut.transition_in ?? editing.transition) === "fade";
-  const fadeOutEnabled = (cut.transition_out ?? editing.transition) === "fade";
-  const fadeIn = fadeInEnabled && transitionFrames > 0
-    ? interpolate(frame, [0, transitionFrames], [0, 1], {extrapolateLeft: "clamp", extrapolateRight: "clamp"}) : 1;
-  const fadeOut = fadeOutEnabled && transitionFrames > 0
-    ? interpolate(frame, [durationInFrames - transitionFrames, durationInFrames], [1, 0], {extrapolateLeft: "clamp", extrapolateRight: "clamp"}) : 1;
+  const inFrames = Math.min(Math.round((cut.transition_in_duration ?? cut.transition_duration ?? editing.transition_seconds) * fps), Math.floor(durationInFrames / 2));
+  const outFrames = Math.min(Math.round((cut.transition_out_duration ?? cut.transition_duration ?? editing.transition_seconds) * fps), Math.floor(durationInFrames / 2));
+  const fadeInEnabled = canonicalTransition(cut.transition_in ?? editing.transition) !== "hard_cut";
+  const fadeOutEnabled = canonicalTransition(cut.transition_out ?? editing.transition) !== "hard_cut";
+  const inActive = transitionPhaseIsActive({frame, durationInFrames, transitionFrames: inFrames, phase: "in"});
+  const outActive = transitionPhaseIsActive({frame, durationInFrames, transitionFrames: outFrames, phase: "out"});
+  const inStyle = boundaryTransitionStyle({transition: fadeInEnabled ? cut.transition_in ?? editing.transition : "hard_cut", direction: canonicalDirection(cut.transition_in_direction), frame, durationInFrames, transitionFrames: inFrames, phase: "in"});
+  const outStyle = boundaryTransitionStyle({transition: fadeOutEnabled ? cut.transition_out ?? editing.transition : "hard_cut", direction: canonicalDirection(cut.transition_out_direction), frame, durationInFrames, transitionFrames: outFrames, phase: "out"});
+  const boundaryStyle = outActive ? outStyle : inActive ? inStyle : {};
   const position = cut.transform?.position;
   const objectPosition = typeof position === "string" ? position : position ? `${position.x}% ${position.y}%` : "center";
   const globalFrame = timelineStartFrame + frame;
@@ -48,18 +51,36 @@ export const VideoFrame: React.FC<Props> = ({
   const playableSourceFrames = Math.round(durationInFrames * (cut.playback_rate ?? 1));
 
   return (
-    <AbsoluteFill style={{backgroundColor: editing.background_color, opacity: Math.min(fadeIn, fadeOut)}}>
+    <AbsoluteFill style={{backgroundColor: editing.background_color, ...boundaryStyle}}>
       <div style={cropViewportStyle(cut.transform?.crop)}>
         <OffthreadVideo
           src={resolveAsset(cut.source)}
           startFrom={trimBefore}
           endAt={Math.min(Math.round(cut.trim_out_seconds * fps), trimBefore + playableSourceFrames)}
           playbackRate={cut.playback_rate ?? 1}
-          muted={resolveSourceAudioMode(cut, sourceAudio) === "muted"}
-          volume={originalVolume}
+          muted={visualOnly || resolveSourceAudioMode(cut, sourceAudio) === "muted"}
+          volume={visualOnly ? 0 : originalVolume}
           style={{width: "100%", height: "100%", objectFit: editing.video_fit, objectPosition}}
         />
       </div>
     </AbsoluteFill>
   );
+};
+
+export const SourceAudioTrack: React.FC<Omit<Props, "editing" | "visualOnly">> = ({
+  cut, sourceAudio, narrationSegments, timelineStartFrame, durationInFrames,
+}) => {
+  const {fps} = useVideoConfig();
+  if (resolveSourceAudioMode(cut, sourceAudio) === "muted") return null;
+  const trimBefore = Math.round(cut.trim_in_seconds * fps);
+  const playableSourceFrames = Math.round(durationInFrames * (cut.playback_rate ?? 1));
+  return <Audio
+    src={resolveAsset(cut.source)}
+    startFrom={trimBefore}
+    endAt={Math.min(Math.round(cut.trim_out_seconds * fps), trimBefore + playableSourceFrames)}
+    playbackRate={cut.playback_rate ?? 1}
+    volume={(frame) => sourceAudioVolumeAtFrame(
+      cut, sourceAudio, narrationIsActiveAtFrame(timelineStartFrame + frame, fps, narrationSegments),
+    )}
+  />;
 };
