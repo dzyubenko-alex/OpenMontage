@@ -200,6 +200,53 @@ Infrastructure files:
 - `tools/cost_tracker.py` — budget governance
 - `lib/pipeline_loader.py` — manifest loading and helpers
 
+## Object Workspace Standard (Mandatory)
+
+`OBJECT_WORKSPACE_STANDARD_V1` governs every object-backed production workspace.
+The global configuration and legacy mappings live under `object_workspace` in
+`config.yaml`; runtime validation is provided by `lib/object_workspace.py`.
+
+Before any write to an object workspace:
+
+1. Receive `OBJECT_ROOT` explicitly from the user or an approved mapping.
+2. Call `validate_object_workspace(OBJECT_ROOT)`.
+3. If the root does not already exist, STOP. Never create a similar root.
+4. Resolve derived output with `resolve_openmontage_output()`.
+5. Write every derived OpenMontage artifact only under `06_OpenMontage`.
+6. Never move source photos, video, documents, or descriptions without separate
+   user approval.
+
+New object roots use:
+
+```
+<OBJECT_CODE>_<SHORT_ADDRESS>
+```
+
+The name must include `OBJECT_CODE` and may contain only letters, digits,
+hyphens, and underscores. Never include price, area, currency, date, advertising
+labels, or temporary attributes.
+
+Canonical layout:
+
+```
+<OBJECT_ROOT>/
+├── 01_Фото/
+├── 02_Видео/
+├── 03_Документы/
+├── 04_Описание/
+├── 05_Реклама/
+└── 06_OpenMontage/
+    ├── 01_Project/
+    ├── 02_Preview/{Audio,MusicCompare,Video}/
+    ├── 03_Output/{16x9,9x16,Avito}/
+    ├── 04_Reports/
+    └── 05_Archive/
+```
+
+Historical roots are allowed only through an exact `legacy_objects` mapping
+containing `object_code`, `canonical_root_name`, `actual_legacy_root`, and
+`project_id`. Do not rename a legacy root implicitly.
+
 ## Project Directory Convention
 
 Every production run creates a project workspace under `projects/`. This directory is gitignored — all generated assets are regenerable.

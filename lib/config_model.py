@@ -62,6 +62,43 @@ class PathsConfig(BaseModel):
     output_dir: str = "output"
 
 
+class ObjectMapping(BaseModel):
+    standard_id: str = "OBJECT_WORKSPACE_STANDARD_V1"
+    object_code: str
+    project_id: str
+    canonical_root_name: str
+    actual_legacy_root: str
+    root_mode: str = "legacy"
+    root_renamed: bool = False
+
+
+class ObjectWorkspaceConfig(BaseModel):
+    standard_id: str = "OBJECT_WORKSPACE_STANDARD_V1"
+    canonical_root_pattern: str = "<OBJECT_CODE>_<SHORT_ADDRESS>"
+    openmontage_directory: str = "06_OpenMontage"
+    require_explicit_existing_root: bool = True
+    allow_automatic_root_creation: bool = False
+    allow_legacy_root: bool = True
+    required_directories: list[str] = Field(
+        default_factory=lambda: [
+            "01_Фото",
+            "02_Видео",
+            "03_Документы",
+            "04_Описание",
+            "05_Реклама",
+            "06_OpenMontage/01_Project",
+            "06_OpenMontage/02_Preview/Audio",
+            "06_OpenMontage/02_Preview/MusicCompare",
+            "06_OpenMontage/02_Preview/Video",
+            "06_OpenMontage/03_Output/16x9",
+            "06_OpenMontage/03_Output/9x16",
+            "06_OpenMontage/03_Output/Avito",
+            "06_OpenMontage/04_Reports",
+            "06_OpenMontage/05_Archive",
+        ]
+    )
+
+
 class OpenMontageConfig(BaseModel):
     """Top-level runtime configuration."""
 
@@ -70,6 +107,7 @@ class OpenMontageConfig(BaseModel):
     checkpoint: CheckpointConfig = Field(default_factory=CheckpointConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
     paths: PathsConfig = Field(default_factory=PathsConfig)
+    object_workspace: ObjectWorkspaceConfig = Field(default_factory=ObjectWorkspaceConfig)
 
     @classmethod
     def load(cls, config_path: Optional[Path] = None) -> "OpenMontageConfig":
