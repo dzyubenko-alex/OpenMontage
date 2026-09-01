@@ -1,0 +1,26 @@
+{
+  "profile_id": "REAL_ESTATE_VOICE_PROFILE_V1",
+  "provider": "elevenlabs_tts",
+  "purpose": "Основной дикторский голос для роликов недвижимости.",
+  "voice_name": "Александр — недвижимость",
+  "voice_id_env": "ELEVENLABS_REAL_ESTATE_VOICE_ID",
+  "model_id": "eleven_multilingual_v2",
+  "voice_settings": {
+    "stability": 0.55,
+    "similarity_boost": 0.88,
+    "style": 0.03,
+    "speed": 0.88,
+    "use_speaker_boost": false
+  },
+  "volume": 1.0,
+  "delivery": {
+    "tone": ["спокойная", "уверенная", "экспертная"],
+    "avoid": ["рекламный нажим"],
+    "pauses": "естественные"
+  },
+  "text_preparation": {
+    "adapt_stress": true,
+    "adapt_numbers": true,
+    "adapt_for_tts": true
+  }
+}

@@ -31,3 +31,26 @@ paths:
   styles_dir: styles
   skills_dir: skills
   output_dir: output
+
+object_workspace:
+  standard_id: OBJECT_WORKSPACE_STANDARD_V1
+  canonical_root_pattern: "<OBJECT_CODE>_<SHORT_ADDRESS>"
+  openmontage_directory: 06_OpenMontage
+  require_explicit_existing_root: true
+  allow_automatic_root_creation: false
+  allow_legacy_root: true
+  required_directories:
+    - 01_Фото
+    - 02_Видео
+    - 03_Документы
+    - 04_Описание
+    - 05_Реклама
+    - 06_OpenMontage/01_Project
+    - 06_OpenMontage/02_Preview/Audio
+    - 06_OpenMontage/02_Preview/MusicCompare
+    - 06_OpenMontage/02_Preview/Video
+    - 06_OpenMontage/03_Output/16x9
+    - 06_OpenMontage/03_Output/9x16
+    - 06_OpenMontage/03_Output/Avito
+    - 06_OpenMontage/04_Reports
+    - 06_OpenMontage/05_Archive
