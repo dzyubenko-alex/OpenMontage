@@ -55,8 +55,9 @@
           "required": ["motion", "transition", "transition_seconds", "image_fit", "background_color", "scale_from", "scale_to", "pan_x", "pan_y"],
           "properties": {
             "motion": { "type": "string", "enum": ["static", "zoom", "pan", "alternate"] },
-            "transition": { "type": "string", "enum": ["cut", "fade"] },
+            "transition": { "$ref": "#/$defs/transition_input" },
             "transition_seconds": { "type": "number", "minimum": 0 },
+            "transition_mode": { "type": "string", "enum": ["legacy", "contextual_v1"] },
             "image_fit": { "type": "string", "enum": ["cover", "contain"] },
             "background_color": { "type": "string" },
             "scale_from": { "type": "number", "minimum": 0.1 },
@@ -71,8 +72,9 @@
           "type": "object",
           "required": ["transition", "transition_seconds", "video_fit", "background_color"],
           "properties": {
-            "transition": { "type": "string", "enum": ["cut", "fade"] },
+            "transition": { "$ref": "#/$defs/transition_input" },
             "transition_seconds": { "type": "number", "minimum": 0 },
+            "transition_mode": { "type": "string", "enum": ["legacy", "contextual_v1"] },
             "video_fit": { "type": "string", "enum": ["cover", "contain"] },
             "background_color": { "type": "string" }
           },
@@ -84,8 +86,9 @@
           "required": ["motion", "transition", "transition_seconds", "image_fit", "video_fit", "background_color", "scale_from", "scale_to", "pan_x", "pan_y"],
           "properties": {
             "motion": { "type": "string", "enum": ["static", "zoom", "pan", "alternate"] },
-            "transition": { "type": "string", "enum": ["cut", "fade"] },
+            "transition": { "$ref": "#/$defs/transition_input" },
             "transition_seconds": { "type": "number", "minimum": 0 },
+            "transition_mode": { "type": "string", "enum": ["legacy", "contextual_v1"] },
             "image_fit": { "type": "string", "enum": ["cover", "contain"] },
             "video_fit": { "type": "string", "enum": ["cover", "contain"] },
             "background_color": { "type": "string" },
@@ -158,6 +161,9 @@
       },
       "additionalProperties": false
     }
+  },
+  "$defs": {
+    "transition_input": {"enum": ["cut", "fade", "hard_cut", "crossfade", "subtle_zoom", "directional_push", "matched_motion", "section_transition"]}
   },
   "additionalProperties": false
 }

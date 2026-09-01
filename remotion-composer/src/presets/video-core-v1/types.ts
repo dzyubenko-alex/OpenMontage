@@ -1,16 +1,20 @@
 import type {WordCaption} from "../../components/CaptionOverlay";
 import type {BrandingProfile, ExportProfile, MusicProfile, VoiceProfile} from "../photo-core-v1/types";
 export type SourceAudioMode = "muted" | "original";
-export type VideoCoreTransition = "cut" | "fade";
+import type {TransitionDirection, TransitionInput} from "../contextualTransitions";
+export type VideoCoreTransition = TransitionInput;
 export type VideoCoreCut = {
   id: string; source: string; trim_in_seconds: number; trim_out_seconds: number;
   clip_duration_seconds?: number; playback_rate?: number;
   source_audio?: SourceAudioMode; source_audio_volume?: number;
-  transition_in?: VideoCoreTransition; transition_out?: VideoCoreTransition;
+  transition_in?: VideoCoreTransition; transition_out?: VideoCoreTransition; transition_duration?: number;
+  transition_in_duration?: number; transition_out_duration?: number;
+  transition_in_direction?: TransitionDirection; transition_out_direction?: TransitionDirection;
   transform?: {position?: string | {x: number; y: number}; crop?: {x: number; y: number; width: number; height: number}};
 };
 export type VideoEditingProfile = {
   transition: VideoCoreTransition; transition_seconds: number;
+  transition_mode?: "legacy" | "contextual_v1";
   video_fit: "cover" | "contain"; background_color: string;
 };
 export type SourceAudioProfile = {

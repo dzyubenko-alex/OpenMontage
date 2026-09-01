@@ -1,15 +1,19 @@
 import type {WordCaption} from "../../components/CaptionOverlay";
 
 export type PhotoCoreMotion = "static" | "zoom" | "pan" | "alternate";
-export type PhotoCoreTransition = "cut" | "fade";
+import type {TransitionDirection, TransitionInput} from "../contextualTransitions";
+export type PhotoCoreTransition = TransitionInput;
 
 export type PhotoCoreCut = {
   id: string;
   source: string;
   in_seconds: number;
   out_seconds: number;
-  transition_in?: string;
-  transition_out?: string;
+  transition_in?: PhotoCoreTransition;
+  transition_out?: PhotoCoreTransition;
+  transition_duration?: number;
+  transition_in_duration?: number; transition_out_duration?: number;
+  transition_in_direction?: TransitionDirection; transition_out_direction?: TransitionDirection;
   transform?: {
     animation?: string;
     scale?: number;
@@ -37,6 +41,7 @@ export type EditingProfile = {
   motion: PhotoCoreMotion;
   transition: PhotoCoreTransition;
   transition_seconds: number;
+  transition_mode?: "legacy" | "contextual_v1";
   image_fit: "cover" | "contain";
   background_color: string;
   scale_from: number;

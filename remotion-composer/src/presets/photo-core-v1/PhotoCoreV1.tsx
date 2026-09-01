@@ -10,6 +10,7 @@ import {
 import {CaptionOverlay} from "../../components/CaptionOverlay";
 import {resolveAsset} from "../../lib/resolveAsset";
 import {PhotoFrame} from "./PhotoFrame";
+import {buildVisualBoundaryTimeline, VisualBoundary} from "../visualBoundaryTimeline";
 import type {BrandingProfile, PhotoCoreV1Props} from "./types";
 
 const positionStyle = (profile: BrandingProfile): React.CSSProperties => ({
@@ -84,6 +85,9 @@ const EndCard: React.FC<{
 export const PhotoCoreV1: React.FC<PhotoCoreV1Props> = ({cuts, profiles, audio, captions}) => {
   const {fps, durationInFrames} = useVideoConfig();
   const visualEnd = cuts.reduce((max, cut) => Math.max(max, cut.out_seconds), 0);
+  const contextualEnabled = profiles.editing.transition_mode === "contextual_v1";
+  const semanticDurations = cuts.map((cut) => Math.max(1, Math.round((cut.out_seconds - cut.in_seconds) * fps)));
+  const visualTimeline = buildVisualBoundaryTimeline(cuts, semanticDurations, fps, profiles.editing);
   const narrationSegments = audio?.narration?.segments ?? (
     audio?.narration?.src ? [{src: audio.narration.src, start_seconds: 0}] : []
   );
@@ -93,7 +97,14 @@ export const PhotoCoreV1: React.FC<PhotoCoreV1Props> = ({cuts, profiles, audio, 
 
   return (
     <AbsoluteFill style={{backgroundColor: profiles.editing.background_color}}>
-      {cuts.map((cut, index) => {
+      {contextualEnabled ? visualTimeline.map((item, index) => {
+        const visualCut = {...item.cut, transition_in: "cut" as const, transition_out: "cut" as const};
+        return <Sequence key={item.cut.id} from={item.visualStartFrame} durationInFrames={item.visualDurationInFrames} premountFor={fps}>
+          <VisualBoundary item={item}>
+            <PhotoFrame cut={visualCut} editing={profiles.editing} index={index} />
+          </VisualBoundary>
+        </Sequence>;
+      }) : cuts.map((cut, index) => {
         const from = Math.round(cut.in_seconds * fps);
         const duration = Math.max(1, Math.round((cut.out_seconds - cut.in_seconds) * fps));
         return (

@@ -10,6 +10,7 @@ import {
   useVideoConfig,
 } from "remotion";
 import { loadFont } from "@remotion/google-fonts/SpaceGrotesk";
+import type {TransitionInput} from "./presets/contextualTransitions";
 import { TextCard } from "./components/TextCard";
 import { StatCard } from "./components/StatCard";
 import { CalloutBox } from "./components/CalloutBox";
@@ -187,7 +188,7 @@ const AnimatedBackground: React.FC<{ theme: ThemeConfig }> = ({ theme }) => {
 // Types — aligned with edit_decisions artifact schema
 // ---------------------------------------------------------------------------
 
-interface Cut {
+export interface Cut {
   id: string;
   source: string;
   in_seconds: number;
@@ -243,8 +244,8 @@ interface Cut {
   fontSize?: number;
   // Animation & transitions
   animation?: string;
-  transition_in?: string;
-  transition_out?: string;
+  transition_in?: TransitionInput;
+  transition_out?: TransitionInput;
   transition_duration?: number;
   transform?: {
     animation?: string;
@@ -420,8 +421,8 @@ const ImageScene: React.FC<{ src: string; animation?: string }> = ({
 const VideoScene: React.FC<{
   src: string;
   startFrom?: number;
-  transitionIn?: string;
-  transitionOut?: string;
+  transitionIn?: TransitionInput;
+  transitionOut?: TransitionInput;
   transitionDuration?: number;
   sceneDurationSeconds: number;
   backgroundColor?: string;
