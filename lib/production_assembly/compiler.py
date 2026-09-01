@@ -5,6 +5,9 @@ from __future__ import annotations
 import copy
 from typing import Any
 
+from lib.contextual_transitions import (
+    resolve_contextual_transitions, resolve_declared_transitions,
+)
 from .normalizer import canonical_digest, normalized_plan_digest
 from .validation import ProductionAssemblyError, validate_normalized_plan
 
@@ -18,6 +21,15 @@ def compile_edit_decisions(plan: dict[str, Any]) -> dict[str, Any]:
     if stored_digest != actual_digest:
         raise ProductionAssemblyError("Normalized production plan digest mismatch")
     validate_normalized_plan(source)
+    editing = source["profiles"]['editing']
+    contextual_enabled = editing.get("transition_mode") == "contextual_v1"
+    resolver = resolve_contextual_transitions if contextual_enabled else resolve_declared_transitions
+    transition_decisions = resolver(
+        source["scenes"], default_transition=editing["transition"],
+        default_duration=editing["transition_seconds"],
+    )
+    entering = {item.to_scene: item for item in transition_decisions}
+    leaving = {item.from_scene: item for item in transition_decisions}
     cuts: list[dict[str, Any]] = []
     narration_timeline: list[dict[str, Any]] = []
     cursor = 0.0
@@ -61,11 +73,27 @@ def compile_edit_decisions(plan: dict[str, Any]) -> dict[str, Any]:
         if transform:
             cut["transform"] = transform
 
-        transition = scene.get("transition", {})
-        if "in" in transition:
-            cut["transition_in"] = transition["in"]
-        if "out" in transition:
-            cut["transition_out"] = transition["out"]
+        if contextual_enabled:
+            incoming = entering.get(scene["id"])
+            outgoing = leaving.get(scene["id"])
+            if incoming:
+                cut["transition_in"] = incoming.transition
+                cut["transition_in_duration"] = incoming.duration
+                if incoming.direction is not None:
+                    cut["transition_in_direction"] = incoming.direction
+            if outgoing:
+                cut["transition_out"] = outgoing.transition
+                cut["transition_out_duration"] = outgoing.duration
+                if outgoing.direction is not None:
+                    cut["transition_out_direction"] = outgoing.direction
+        else:
+            transition = scene.get("transition", {})
+            if "in" in transition:
+                cut["transition_in"] = transition["in"]
+            if "out" in transition:
+                cut["transition_out"] = transition["out"]
+            if "duration_seconds" in transition:
+                cut["transition_duration"] = transition["duration_seconds"]
         cuts.append(cut)
 
         narration = scene.get("narration_binding")
@@ -95,6 +123,7 @@ def compile_edit_decisions(plan: dict[str, Any]) -> dict[str, Any]:
                 "narration_bindings": narration_timeline,
                 "source_manifest_digest": source["diagnostics"]["source_manifest_digest"],
                 "normalized_plan_digest": source["diagnostics"]["normalized_plan_digest"],
+                "transition_map": [item.as_map_entry() for item in transition_decisions],
             }
         },
     }

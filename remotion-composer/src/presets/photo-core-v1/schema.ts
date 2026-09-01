@@ -1,4 +1,5 @@
 import {z} from "zod";
+import {transitionDirectionSchema, transitionInputSchema} from "../transitionSchema";
 
 const boundedVolume = z.number().min(0).max(1);
 
@@ -8,8 +9,11 @@ export const photoCoreV1Schema = z.object({
     source: z.string(),
     in_seconds: z.number().min(0),
     out_seconds: z.number().min(0),
-    transition_in: z.string().optional(),
-    transition_out: z.string().optional(),
+    transition_in: transitionInputSchema.optional(),
+    transition_out: transitionInputSchema.optional(),
+    transition_duration: z.number().min(0).optional(),
+    transition_in_duration: z.number().min(0).optional(), transition_out_duration: z.number().min(0).optional(),
+    transition_in_direction: transitionDirectionSchema.optional(), transition_out_direction: transitionDirectionSchema.optional(),
     transform: z.object({
       animation: z.string().optional(),
       scale: z.number().positive().optional(),
@@ -44,8 +48,8 @@ export const photoCoreV1Schema = z.object({
     }),
     editing: z.object({
       motion: z.enum(["static", "zoom", "pan", "alternate"]),
-      transition: z.enum(["cut", "fade"]),
-      transition_seconds: z.number().min(0),
+      transition: transitionInputSchema,
+      transition_seconds: z.number().min(0), transition_mode: z.enum(["legacy", "contextual_v1"]).optional(),
       image_fit: z.enum(["cover", "contain"]),
       background_color: z.string(),
       scale_from: z.number().positive(),

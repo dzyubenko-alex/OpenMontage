@@ -7,6 +7,8 @@ import {
 } from "remotion";
 import type {CSSProperties} from "react";
 import {resolveAsset} from "../../lib/resolveAsset";
+import {boundaryTransitionStyle, canonicalDirection, transitionPhaseIsActive} from "../contextualTransitions";
+import {resolvePhotoBoundaryTransition} from "./legacyTransition";
 import type {EditingProfile, PhotoCoreCut} from "./types";
 
 type PhotoFrameProps = {
@@ -50,22 +52,20 @@ export const PhotoFrame: React.FC<PhotoFrameProps> = ({cut, editing, index}) => 
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const transitionFrames = Math.min(
-    Math.round(editing.transition_seconds * fps),
-    Math.floor(durationInFrames / 2),
-  );
-  const useFadeIn = editing.transition === "fade" && !hardTransition(cut.transition_in);
-  const useFadeOut = editing.transition === "fade" && !hardTransition(cut.transition_out);
-  const fadeIn = useFadeIn && transitionFrames > 0
-    ? interpolate(frame, [0, transitionFrames], [0, 1], {
-        extrapolateLeft: "clamp", extrapolateRight: "clamp",
-      })
-    : 1;
-  const fadeOut = useFadeOut && transitionFrames > 0
-    ? interpolate(frame, [durationInFrames - transitionFrames, durationInFrames], [1, 0], {
-        extrapolateLeft: "clamp", extrapolateRight: "clamp",
-      })
-    : 1;
+  const inFrames = Math.min(Math.round((cut.transition_in_duration ?? cut.transition_duration ?? editing.transition_seconds) * fps), Math.floor(durationInFrames / 2));
+  const outFrames = Math.min(Math.round((cut.transition_out_duration ?? cut.transition_duration ?? editing.transition_seconds) * fps), Math.floor(durationInFrames / 2));
+  const contextualEnabled = editing.transition_mode === "contextual_v1";
+  const transitionIn = resolvePhotoBoundaryTransition({
+    profileTransition: editing.transition, sceneTransition: cut.transition_in, contextualEnabled,
+  });
+  const transitionOut = resolvePhotoBoundaryTransition({
+    profileTransition: editing.transition, sceneTransition: cut.transition_out, contextualEnabled,
+  });
+  const inActive = transitionPhaseIsActive({frame, durationInFrames, transitionFrames: inFrames, phase: "in"});
+  const outActive = transitionPhaseIsActive({frame, durationInFrames, transitionFrames: outFrames, phase: "out"});
+  const inStyle = boundaryTransitionStyle({transition: transitionIn, direction: canonicalDirection(cut.transition_in_direction), frame, durationInFrames, transitionFrames: inFrames, phase: "in"});
+  const outStyle = boundaryTransitionStyle({transition: transitionOut, direction: canonicalDirection(cut.transition_out_direction), frame, durationInFrames, transitionFrames: outFrames, phase: "out"});
+  const phaseStyle = outActive ? outStyle : inActive ? inStyle : {};
 
   const motion = motionFor(cut, editing, index);
   let scale = cut.transform?.scale ?? editing.scale_from;
@@ -92,7 +92,7 @@ export const PhotoFrame: React.FC<PhotoFrameProps> = ({cut, editing, index}) => 
 
   return (
     <AbsoluteFill style={{overflow: "hidden", backgroundColor: editing.background_color}}>
-      <div style={cropViewportStyle(cut.transform?.crop)}>
+      <div style={{...cropViewportStyle(cut.transform?.crop), ...phaseStyle}}>
         <Img
           src={resolveAsset(cut.source)}
           style={{
@@ -100,7 +100,6 @@ export const PhotoFrame: React.FC<PhotoFrameProps> = ({cut, editing, index}) => 
             height: "100%",
             objectFit: editing.image_fit,
             objectPosition,
-            opacity: Math.min(fadeIn, fadeOut),
             transform: `translate3d(${x}px, ${y}px, 0) scale(${scale})`,
             willChange: "transform, opacity",
           }}

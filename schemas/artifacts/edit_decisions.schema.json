@@ -65,18 +65,22 @@
             "additionalProperties": false
           },
           "transition_in": {
-            "type": "string",
-            "description": "Transition type entering this cut (e.g. fade, dissolve, cut, wipe)"
+            "$ref": "#/$defs/transition_input",
+            "description": "Strict transition type entering this cut"
           },
           "transition_out": {
-            "type": "string",
-            "description": "Transition type leaving this cut"
+            "$ref": "#/$defs/transition_input",
+            "description": "Strict transition type leaving this cut"
           },
           "transition_duration": {
             "type": "number",
             "minimum": 0,
-            "description": "Duration of transition in seconds"
+            "description": "Legacy shared transition duration in seconds"
           },
+          "transition_in_duration": {"type": "number", "minimum": 0},
+          "transition_out_duration": {"type": "number", "minimum": 0},
+          "transition_in_direction": {"enum": ["left", "right", "up", "down"]},
+          "transition_out_direction": {"enum": ["left", "right", "up", "down"]},
           "backgroundColor": {
             "type": "string",
             "description": "Backing color used behind this cut by composition runtimes"
@@ -206,7 +210,7 @@
       "items": {
         "type": "object",
         "properties": {
-          "type": { "type": "string" },
+          "type": {"$ref": "#/$defs/transition_input"},
           "at_seconds": { "type": "number" },
           "duration_seconds": { "type": "number", "minimum": 0 }
         },
@@ -329,8 +333,8 @@
           "cuts": {
             "items": {
               "properties": {
-                "transition_in": {"type": "string", "enum": ["cut", "fade"]},
-                "transition_out": {"type": "string", "enum": ["cut", "fade"]}
+                "transition_in": {"$ref": "#/$defs/transition_input"},
+                "transition_out": {"$ref": "#/$defs/transition_input"}
               },
               "allOf": [
                 {"required": ["media_type"]},
@@ -369,5 +373,8 @@
       }
     }
   ],
+  "$defs": {
+    "transition_input": {"enum": ["cut", "fade", "hard_cut", "crossfade", "subtle_zoom", "directional_push", "matched_motion", "section_transition"]}
+  },
   "additionalProperties": false
 }
